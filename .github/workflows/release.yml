@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      cpu_arch:
+        required: false
+        type: string
+      dot_env_path:
+        required: false
+        type: string
+      force_github_host:
+        required: false
+        type: boolean
+      ignore_renovate:
+        required: false
+        type: boolean
+      # TODO(exkazuu): remove the following inputs
+      non_self_hosted:
+        required: false
+        type: boolean
+    secrets:
+      DOT_ENV:
+        required: false
+      GH_TOKEN:
+        required: true
+      NPM_TOKEN:
+        required: false
+
+jobs:
+  release:
+    if: ${{ !inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    steps:
+      - uses: actions/checkout@v2
+      - if: ${{ inputs.dot_env_path }}
+        run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
+
+      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
+      # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
+      - id: get-ver
+        run: |
+          if [[ -f .tool-versions ]]; then
+            echo "::set-output name=exist-tool-versions::1";
+          fi
+          if [[ "$(cat .tool-versions)" != *"node"* ]]; then
+            echo "::set-output name=node::$(cat .node-version || echo 16)";
+          fi
+      - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
+        uses: willbooster/asdf-actions/install@main
+      - if: ${{ steps.get-ver.outputs.node }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.get-ver.outputs.node }}
+      - if: ${{ steps.get-ver.outputs.node }}
+        run: |
+          asdf plugin add nodejs || true
+          asdf plugin add yarn || true
+          asdf local nodejs system && asdf local yarn system
+          if [[ ! $(yarn --version) ]]; then
+            asdf install yarn 1.22.17 && asdf local yarn 1.22.17
+          fi
+      - name: Show environment information
+        id: env-info
+        # https://stackoverflow.com/a/677212
+        run: |
+          echo "node: $(node -v)"
+          echo "yarn: $(yarn -v)"
+          if [[ "$(yarn -v)" == "1."* ]]; then
+            echo "::set-output name=yarn-dir::$(yarn cache dir)"
+          fi
+
+      - if: ${{ steps.env-info.outputs.yarn-dir }}
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.env-info.outputs.yarn-dir }}
+          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
+          # c.f. https://github.com/AllanChain/blog/issues/98
+          key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-v1-
+      - uses: actions/cache@v2
+        with:
+          path: .yarn
+          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
+          # c.f. https://github.com/AllanChain/blog/issues/98
+          key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-berry-
+
+      - run: yarn install
+      - run: |
+          if [[ "$(cat package.json)" == *'"release":'* ]]; then
+            yarn release
+          else
+            yarn semantic-release
+          fi
+        # Existing GITHUB_TOKEN cannot trigger release (published) event
+        # We need to pass a personal token (e.g. secrets.GH_BOT_PAT) to secrets.GH_TOKEN
+        # c.f. https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

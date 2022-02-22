@@ -1,0 +1,190 @@
+name: Deploy app
+
+on:
+  workflow_call:
+    inputs:
+      cpu_arch:
+        required: false
+        type: string
+      deploy_command:
+        required: false
+        type: string
+      dot_env_path:
+        required: false
+        type: string
+      environment:
+        required: true
+        type: string
+      force_github_host:
+        required: false
+        type: boolean
+      ignore_renovate:
+        required: false
+        type: boolean
+      notify_discord:
+        required: false
+        type: boolean
+      require_fly:
+        required: false
+        type: boolean
+      require_gcloud:
+        required: false
+        type: boolean
+      server_url:
+        required: false
+        type: string
+      version:
+        required: false
+        type: string
+      # TODO(exkazuu): remove the following inputs
+      non_self_hosted:
+        required: false
+        type: boolean
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: false
+      DOT_ENV:
+        required: false
+      FIREBASE_TOKEN:
+        required: false
+      FLY_API_TOKEN:
+        required: false
+      GCP_SA_KEY_JSON:
+        required: false
+      GH_TOKEN:
+        required: false
+
+jobs:
+  pre:
+    if: ${{ !inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          cancel_others: false
+          skip_after_successful_duplicate: true
+          concurrent_skipping: same_content_newer
+          paths_ignore: '["*.md"]'
+  deploy:
+    needs: pre
+    if: ${{ needs.pre.outputs.should_skip != 'true' }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    env:
+      # constants
+      GCLOUD_VERSION: 366.0.0
+      PYTHON_VERSION: 3.9.9
+      # arguments
+      ENVIRONMENT: ${{ inputs.environment }}
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+    steps:
+      - uses: fkirc/skip-duplicate-actions@master
+        with:
+          cancel_others: true
+      - uses: actions/checkout@v2
+      - if: ${{ inputs.dot_env_path }}
+        run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
+
+      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
+      # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
+      - id: get-ver
+        run: |
+          if [[ -f .tool-versions ]]; then
+            echo "::set-output name=exist-tool-versions::1";
+          fi
+          if [[ "$(cat .tool-versions)" != *"node"* ]]; then
+            echo "::set-output name=node::$(cat .node-version || echo 16)";
+          fi
+      - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
+        uses: willbooster/asdf-actions/install@main
+      - if: ${{ steps.get-ver.outputs.node }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.get-ver.outputs.node }}
+      - if: ${{ steps.get-ver.outputs.node }}
+        run: |
+          asdf plugin add nodejs || true
+          asdf plugin add yarn || true
+          asdf local nodejs system && asdf local yarn system
+          if [[ ! $(yarn --version) ]]; then
+            asdf install yarn 1.22.17 && asdf local yarn 1.22.17
+          fi
+      - if: ${{ inputs.require_gcloud }}
+        run: |
+          if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
+            asdf plugin add python || true
+            asdf install python $PYTHON_VERSION
+            asdf local python $PYTHON_VERSION
+          fi
+          if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"gcloud"* ]]; then
+            asdf plugin add gcloud || true
+            asdf install gcloud $GCLOUD_VERSION
+            asdf local gcloud $GCLOUD_VERSION
+          fi
+      - name: Show environment information
+        id: env-info
+        # https://stackoverflow.com/a/677212
+        run: |
+          echo "node: $(node -v)"
+          echo "yarn: $(yarn -v)"
+          if command -v python &> /dev/null; then echo "python: $(python --version)"; fi
+          if command -v poetry &> /dev/null; then echo "poetry: $(poetry --version)"; fi
+          if command -v gcloud &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
+          if [[ "$(yarn -v)" == "1."* ]]; then
+            echo "::set-output name=yarn-dir::$(yarn cache dir)"
+          fi
+          echo "::set-output name=git-revision::$(git describe --always --tags)"
+      - name: Set environment variables
+        run: |
+          echo "PATH=$HOME/.fly/bin:$PATH" >> $GITHUB_ENV
+          echo "VERSION=${{ steps.env-info.outputs.git-revision }}" >> $GITHUB_ENV
+      - name: Verify environment variables
+        run: |
+          echo ${PATH}
+          echo ${VERSION}
+
+      - if: ${{ steps.env-info.outputs.yarn-dir }}
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.env-info.outputs.yarn-dir }}
+          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
+          # c.f. https://github.com/AllanChain/blog/issues/98
+          key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-v1-
+      - uses: actions/cache@v2
+        with:
+          path: .yarn
+          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
+          # c.f. https://github.com/AllanChain/blog/issues/98
+          key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-berry-
+
+      - if: ${{ inputs.require_fly }}
+        run: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
+      - if: ${{ inputs.require_gcloud }}
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
+      - name: Configure docker to use gcloud
+        run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
+      - run: yarn install
+
+      - run: if [[ "$(cat package.json)" == *'"deploy-setup":'* ]]; then yarn deploy-setup; fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+      - run: yarn ${{ inputs.deploy_command || 'deploy' }}
+
+      - if: ${{ inputs.notify_discord && inputs.environment == 'staging' }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data "{\"content\":\"ステージング環境 (${{ inputs.server_url }}) が更新されました。\n更新時に含まれるコミット一覧: https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - if: ${{ inputs.notify_discord && inputs.environment == 'production' }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data "{\"content\":\"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n本番環境 (${{ inputs.server_url }}) が更新されました。\n更新時に含まれるコミット一覧: https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - run: docker system prune -a -f --filter "until=24h"

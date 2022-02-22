@@ -1,0 +1,55 @@
+name: Sync
+
+on:
+  workflow_call:
+    inputs:
+      cpu_arch:
+        required: false
+        type: string
+      force_github_host:
+        required: false
+        type: boolean
+      sync_params_without_dest:
+        required: false
+        type: string
+      # TODO(exkazuu): remove the following inputs
+      non_self_hosted:
+        required: false
+        type: boolean
+    secrets:
+      DEST_GIT_URL:
+        required: true
+
+jobs:
+  sync:
+    # Make this workflow not work on other organizations for safety
+    if: ${{ github.repository_owner == 'WillBooster' }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    steps:
+      # Because one-way-git-sync requires full history
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - run: |
+          asdf plugin add nodejs || true
+          asdf plugin add yarn || true
+          asdf local nodejs system && asdf local yarn system
+          if [[ ! $(yarn --version) ]]; then
+            asdf install yarn 1.22.17 && asdf local yarn 1.22.17
+          fi
+      - name: Show environment information
+        run: |
+          echo "node: $(node -v)"
+
+      - run: |
+          git config --global user.email "bot@willbooster.com"
+          git config --global user.name "WillBooster Inc."
+      - run: |
+          npx -y one-way-git-sync \
+            ${{ inputs.sync_params_without_dest }} \
+            -d ${{ secrets.DEST_GIT_URL }}

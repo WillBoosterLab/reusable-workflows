@@ -1,0 +1,14 @@
+name: Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: wb-mac-2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PUBLIC_GH_BOT_PAT }}
+      - run: |
+          which asdf
