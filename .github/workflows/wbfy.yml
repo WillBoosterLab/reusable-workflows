@@ -56,6 +56,8 @@ jobs:
             ${{ runner.os }}-yarn-berry-
 
       - run: yarn dlx wbfy .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
