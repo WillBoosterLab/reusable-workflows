@@ -7,7 +7,7 @@ jobs:
   debug:
     runs-on: wb-mac-2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.PUBLIC_GH_BOT_PAT }}
       - run: |

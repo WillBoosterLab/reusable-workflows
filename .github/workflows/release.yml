@@ -32,7 +32,7 @@ jobs:
     if: ${{ !inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]') }}
     runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - if: ${{ inputs.dot_env_path }}
         run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
 

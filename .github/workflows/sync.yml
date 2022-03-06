@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
       # Because one-way-git-sync requires full history
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 

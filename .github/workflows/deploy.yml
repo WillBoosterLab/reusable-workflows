@@ -85,7 +85,7 @@ jobs:
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - if: ${{ inputs.dot_env_path }}
         run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
 
