@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: 16
       - run: |

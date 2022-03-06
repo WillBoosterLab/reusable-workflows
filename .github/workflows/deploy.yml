@@ -102,7 +102,7 @@ jobs:
       - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
         uses: willbooster/asdf-actions/install@main
       - if: ${{ steps.get-ver.outputs.node }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ steps.get-ver.outputs.node }}
       - if: ${{ steps.get-ver.outputs.node }}
