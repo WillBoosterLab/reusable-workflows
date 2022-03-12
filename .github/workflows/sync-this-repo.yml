@@ -7,6 +7,6 @@ jobs:
   sync:
     uses: WillBooster/reusable-workflows/.github/workflows/sync.yml@main
     with:
-      sync_params_without_dest: '-v -i .git -i node_modules'
+      sync_params_without_dest: '-v -i .git -i node_modules -i .renovaterc.json'
     secrets:
       DEST_GIT_URL: https://oauth2:${{ secrets.PUBLIC_GH_BOT_PAT }}@github.com/WillBoosterLab/reusable-workflows
