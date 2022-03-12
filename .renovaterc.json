@@ -1,1 +1,1 @@
-{ "extends": ["@willbooster"] }
+{ "enabled": false }
