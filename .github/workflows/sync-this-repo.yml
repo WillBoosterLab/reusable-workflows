@@ -1,0 +1,12 @@
+name: Sync
+on:
+  push:
+    branches:
+      - main
+jobs:
+  sync:
+    uses: WillBooster/reusable-workflows/.github/workflows/sync.yml@main
+    with:
+      sync_params_without_dest: '-v -i .git -i node_modules'
+    secrets:
+      DEST_GIT_URL: https://oauth2:${{ secrets.PUBLIC_GH_BOT_PAT }}@github.com/WillBoosterLab/reusable-workflows

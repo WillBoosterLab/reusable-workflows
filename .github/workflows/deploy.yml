@@ -36,10 +36,6 @@ on:
       version:
         required: false
         type: string
-      # TODO(exkazuu): remove the following inputs
-      non_self_hosted:
-        required: false
-        type: boolean
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
@@ -81,11 +77,12 @@ jobs:
       FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - if: ${{ inputs.dot_env_path }}
         run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
 
@@ -102,7 +99,7 @@ jobs:
       - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
         uses: willbooster/asdf-actions/install@main
       - if: ${{ steps.get-ver.outputs.node }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ steps.get-ver.outputs.node }}
       - if: ${{ steps.get-ver.outputs.node }}
@@ -175,9 +172,8 @@ jobs:
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
 
+      - run: if [[ "$(cat package.json)" == *'"deploy:setup":'* ]]; then yarn deploy:setup; fi
       - run: if [[ "$(cat package.json)" == *'"deploy-setup":'* ]]; then yarn deploy-setup; fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
       - run: yarn ${{ inputs.deploy_command || 'deploy' }}
 
       - if: ${{ inputs.notify_discord && inputs.environment == 'staging' }}

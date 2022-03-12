@@ -8,10 +8,6 @@ on:
       force_github_host:
         required: false
         type: boolean
-      # TODO(exkazuu): remove the following inputs
-      non_self_hosted:
-        required: false
-        type: boolean
     secrets:
       GH_TOKEN:
         required: true
@@ -19,7 +15,7 @@ jobs:
   wbfy:
     runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         # To trigger other workflows when running 'git push'
         with:
           token: ${{ secrets.GH_TOKEN }}
@@ -35,7 +31,7 @@ jobs:
           fi
       - if: ${{ steps.get-ver.outputs.exist-version }}
         uses: willbooster/asdf-actions/install@main
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
@@ -55,7 +51,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-berry-
 
-      - run: yarn dlx wbfy .
+      - run: yarn dlx wbfy --version && yarn dlx wbfy .
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - run: |
@@ -63,10 +59,10 @@ jobs:
           git config --global user.name "WillBooster Inc."
           git checkout -B wbfy
           git add -A
-          if [[ $(git commit -m "chore: wbfy this repo" --no-verify) ]]; then
+          if [[ $(git commit -m "chore: willboosterify this repo" --no-verify) ]]; then
             git push origin wbfy -f --no-verify
             curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/pulls \
-              -X POST -d '{"head":"wbfy","base":"main","title":"chore: wbfy this repo"}' || true
+              -X POST -d '{"head":"wbfy","base":"main","title":"chore: willboosterify this repo"}' || true
           fi
