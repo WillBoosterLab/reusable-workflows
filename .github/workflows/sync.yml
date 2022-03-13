@@ -50,3 +50,5 @@ jobs:
           npx -y --package=one-way-git-sync@latest one-way-git-sync \
             ${{ inputs.sync_params_without_dest }} \
             -d ${{ secrets.DEST_GIT_URL }}
+        env:
+          HUSKY: 0
