@@ -545,15 +545,15 @@ __metadata:
   linkType: hard
 
 "listr2@npm:^4.0.1":
-  version: 4.0.4
-  resolution: "listr2@npm:4.0.4"
+  version: 4.0.5
+  resolution: "listr2@npm:4.0.5"
   dependencies:
     cli-truncate: ^2.1.0
     colorette: ^2.0.16
     log-update: ^4.0.0
     p-map: ^4.0.0
     rfdc: ^1.3.0
-    rxjs: ^7.5.4
+    rxjs: ^7.5.5
     through: ^2.3.8
     wrap-ansi: ^7.0.0
   peerDependencies:
@@ -561,7 +561,7 @@ __metadata:
   peerDependenciesMeta:
     enquirer:
       optional: true
-  checksum: 1e6e44a3a0337f47d0a1bc90712b0001129d3ca3fae56dc5b834da556b634862a211d8c638528600daf1c1899a3f2366f822ecb03dba5327ff2c017578815e61
+  checksum: 7af31851abe25969ef0581c6db808117e36af15b131401795182427769d9824f451ba9e8aff6ccd25b6a4f6c8796f816292caf08e5f1f9b1775e8e9c313dc6c5
   languageName: node
   linkType: hard
 
@@ -774,12 +774,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:^7.5.4":
-  version: 7.5.4
-  resolution: "rxjs@npm:7.5.4"
+"rxjs@npm:^7.5.5":
+  version: 7.5.5
+  resolution: "rxjs@npm:7.5.5"
   dependencies:
     tslib: ^2.1.0
-  checksum: 6f55f835f2543bc8214900f9e28b6320e6adc95875011fbca63e80a66eb18c9ff7cfdccb23b2180cbb6412762b98ed158c89fd51cb020799d127c66ea38c3c0e
+  checksum: e034f60805210cce756dd2f49664a8108780b117cf5d0e2281506e9e6387f7b4f1532d974a8c8b09314fa7a16dd2f6cff3462072a5789672b5dcb45c4173f3c6
   languageName: node
   linkType: hard
 
