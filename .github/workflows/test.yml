@@ -87,7 +87,8 @@ jobs:
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
-      - id: get-ver
+      - name: Get Node.js version
+        id: get-ver
         run: |
           if [[ -f .tool-versions ]]; then
             echo "::set-output name=exist-tool-versions::1";
@@ -102,6 +103,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version || steps.get-ver.outputs.node }}
       - if: ${{ steps.get-ver.outputs.node }}
+        name: Install Node.js with asdf
         run: |
           asdf plugin add nodejs || true
           asdf plugin add yarn || true

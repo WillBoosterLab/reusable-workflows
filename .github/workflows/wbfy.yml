@@ -24,7 +24,8 @@ jobs:
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
-      - id: get-ver
+      - name: Get Node.js version
+        id: get-ver
         run: |
           if [[ -f .tool-versions ]] || [[ -f .node-version ]]; then
             echo "::set-output name=exist-version::1";

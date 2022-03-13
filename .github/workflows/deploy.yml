@@ -88,7 +88,8 @@ jobs:
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
-      - id: get-ver
+      - name: Get Node.js version
+        id: get-ver
         run: |
           if [[ -f .tool-versions ]]; then
             echo "::set-output name=exist-tool-versions::1";
@@ -103,6 +104,7 @@ jobs:
         with:
           node-version: ${{ steps.get-ver.outputs.node }}
       - if: ${{ steps.get-ver.outputs.node }}
+        name: Install Node.js with asdf
         run: |
           asdf plugin add nodejs || true
           asdf plugin add yarn || true
@@ -111,6 +113,7 @@ jobs:
             asdf install yarn 1.22.17 && asdf local yarn 1.22.17
           fi
       - if: ${{ inputs.require_gcloud }}
+        name: Install gcloud with asdf
         run: |
           if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
             asdf plugin add python || true
@@ -163,12 +166,14 @@ jobs:
             ${{ runner.os }}-yarn-berry-
 
       - if: ${{ inputs.require_fly }}
+        name: Install fly
         run: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
       - if: ${{ inputs.require_gcloud }}
         uses: google-github-actions/auth@v0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
-      - name: Configure docker to use gcloud
+      - if: ${{ inputs.require_gcloud }}
+        name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
 
