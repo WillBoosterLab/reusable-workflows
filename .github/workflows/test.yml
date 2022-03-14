@@ -158,7 +158,9 @@ jobs:
 
       - run: yarn install
       - run: |
-          if [[ "$(cat package.json)" == *'"setup-ci":'* ]]; then
+          if [[ "$(cat package.json)" == *'"setup/ci":'* ]]; then
+            yarn run setup/ci
+          elif [[ "$(cat package.json)" == *'"setup-ci":'* ]]; then
             yarn setup-ci
           elif [[ "$(cat package.json)" == *'"setup":'* ]]; then
             yarn setup
