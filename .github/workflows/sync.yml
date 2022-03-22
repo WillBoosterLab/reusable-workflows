@@ -36,7 +36,8 @@ jobs:
           asdf plugin add yarn || true
           asdf local nodejs system && asdf local yarn system
           if [[ ! $(yarn --version) ]]; then
-            asdf install yarn 1.22.17 && asdf local yarn 1.22.17
+            YARN_VERSION=$(npm show yarn version)
+            asdf install yarn $(YARN_VERSION) && asdf local yarn $(YARN_VERSION)
           fi
       - name: Show environment information
         run: |
