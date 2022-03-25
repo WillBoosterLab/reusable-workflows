@@ -11,4 +11,14 @@ jobs:
         with:
           token: ${{ secrets.PUBLIC_GH_BOT_PAT }}
       - run: |
-          which asdf
+          yarn --version
+          asdf shell yarn 1.22.18
+          yarn --version
+      - run: |
+          yarn --version
+          asdf shell yarn 1.22.17
+          yarn --version
+      - run: |
+          yarn --version
+          asdf shell yarn 1.22.18
+          yarn --version
