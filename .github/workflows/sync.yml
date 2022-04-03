@@ -31,14 +31,6 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-      - run: |
-          asdf plugin add nodejs || true
-          asdf plugin add yarn || true
-          asdf local nodejs system && asdf local yarn system
-          if [[ ! $(yarn --version) ]]; then
-            YARN_VERSION=$(npm show yarn version)
-            asdf install yarn $(YARN_VERSION) && asdf local yarn $(YARN_VERSION)
-          fi
       - name: Show environment information
         run: |
           echo "node: $(node -v)"

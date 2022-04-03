@@ -5,7 +5,7 @@ on:
 
 jobs:
   debug:
-    runs-on: wb-mac-2
+    runs-on: wb-mac-1
     steps:
       - uses: actions/checkout@v3
         with:

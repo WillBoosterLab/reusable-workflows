@@ -57,10 +57,6 @@ jobs:
           fi
       - if: ${{ steps.check-node.outputs.require-install }}
         uses: actions/setup-node@v3
-      - if: ${{ steps.check-node.outputs.require-install }}
-        run: |
-          asdf plugin add nodejs || true
-          asdf local nodejs system || true
       - id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions
         run: |
@@ -126,7 +122,7 @@ jobs:
           fi
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -134,7 +130,7 @@ jobs:
           key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: .yarn
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -142,7 +138,7 @@ jobs:
           key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-berry-
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/firebase/emulators
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -150,7 +146,7 @@ jobs:
           key: ${{ runner.os }}-firebase-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-firebase-
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pypoetry/virtualenvs
           key: ${{ runner.os }}-poetry-${{ hashFiles('packages/recommender/poetry.lock') }}

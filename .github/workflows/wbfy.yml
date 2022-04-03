@@ -43,7 +43,7 @@ jobs:
             echo "::set-output name=yarn-dir::$(yarn cache dir)"
           fi
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: .yarn
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
