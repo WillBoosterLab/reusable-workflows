@@ -6,7 +6,7 @@ on:
       cpu_arch:
         required: false
         type: string
-      force_github_host:
+      github_hosted_runner:
         required: false
         type: boolean
       text:
@@ -18,7 +18,7 @@ on:
 
 jobs:
   echo:
-    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     outputs:
       text: ${{ steps.echo.outputs.text }}
     steps:

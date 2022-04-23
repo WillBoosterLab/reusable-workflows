@@ -5,7 +5,7 @@ on:
       cpu_arch:
         required: false
         type: string
-      force_github_host:
+      github_hosted_runner:
         required: false
         type: boolean
     secrets:
@@ -13,7 +13,7 @@ on:
         required: true
 jobs:
   wbfy:
-    runs-on: ${{ ((!github.event.repository.private || inputs.force_github_host) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
       - uses: actions/checkout@v3
         # To trigger other workflows when running 'git push'
