@@ -18,6 +18,9 @@ on:
       github_hosted_runner:
         required: false
         type: boolean
+      target_organization:
+        required: false
+        type: string
     secrets:
       DOT_ENV:
         required: false
@@ -27,6 +30,7 @@ on:
         required: false
 jobs:
   pre:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}

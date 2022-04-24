@@ -12,6 +12,10 @@ on:
       sync_params_without_dest:
         required: false
         type: string
+      target_organization:
+        required: false
+        type: string
+        default: WillBooster
     secrets:
       DEST_GIT_URL:
         required: true
@@ -19,7 +23,7 @@ on:
 jobs:
   sync:
     # Make this workflow not work on other organizations for safety
-    if: ${{ github.repository_owner == 'WillBooster' }}
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
       # Because one-way-git-sync requires full history
