@@ -50,9 +50,9 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 17.0.24
-  resolution: "@types/node@npm:17.0.24"
-  checksum: c9f00bac557e21b19955db9da2020bb0ac42e6a2d93a8b342c489cd4841e622dc9d65777ec4b24b12e318c35225fa1a9151524cdb7ad3d9d53efe174e27bdc60
+  version: 17.0.30
+  resolution: "@types/node@npm:17.0.30"
+  checksum: 562e97f9be4cc1f297adda2d68b671c45900980e2350eec18803c10ca2b9086ae9319dcce109ec62e6f8e032a56c423b1216d9a04b4f0324514fc3d6de8e1f53
   languageName: node
   linkType: hard
 
@@ -956,9 +956,9 @@ __metadata:
   linkType: hard
 
 "tslib@npm:^2.1.0":
-  version: 2.3.1
-  resolution: "tslib@npm:2.3.1"
-  checksum: 78b00432027abb82405d5986a091fa593c6ef6589d0104d20ecdcaf24f2b02be428d9a38e7cd5304e5d64544cddb83210e326dac4fea9b2b83128a869c825d19
+  version: 2.4.0
+  resolution: "tslib@npm:2.4.0"
+  checksum: 022a70708abbc3491734959effd9a87e6e0af5932b61d0c9f1d07b8b80cabbbfc9fc9e9c0fe86e5ab2d32d766ae30117edf00b02d170ff255ab7e60361a4b711
   languageName: node
   linkType: hard
 
