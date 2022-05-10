@@ -181,9 +181,7 @@ jobs:
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
 
-      - run: if [[ "$(cat package.json)" == *'"deploy/setup":'* ]]; then yarn run deploy/setup; fi
-      - run: if [[ "$(cat package.json)" == *'"deploy:setup":'* ]]; then yarn deploy:setup; fi
-      - run: if [[ "$(cat package.json)" == *'"deploy-setup":'* ]]; then yarn deploy-setup; fi
+      - run: if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
       - run: yarn ${{ inputs.deploy_command || 'deploy' }}
 
       - if: ${{ inputs.notify_discord && inputs.environment == 'staging' }}
