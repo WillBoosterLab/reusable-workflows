@@ -13,7 +13,7 @@
   "prettier": "@willbooster/prettier-config",
   "devDependencies": {
     "@willbooster/prettier-config": "9.0.0",
-    "@willbooster/renovate-config": "9.2.0",
+    "@willbooster/renovate-config": "9.3.0",
     "husky": "7.0.4",
     "lint-staged": "12.4.1",
     "pinst": "3.0.0",
