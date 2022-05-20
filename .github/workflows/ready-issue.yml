@@ -1,0 +1,23 @@
+name: Notify ready issue
+
+on:
+  workflow_call:
+    inputs:
+      target_organization:
+        required: false
+        type: string
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: true
+
+jobs:
+  notify:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    steps:
+      - run: |
+          curl -H "Content-Type: application/json" \
+               -d '{"username": "WillBooster", "avatar_url": "https://avatars.githubusercontent.com/u/98675783", "content": "新たに`ready`なissueが追加されたよ:rocket:\n${{ github.event.issue.html_url }}", \
+                    "embeds":[{ "title": "${{ github.event.issue.title }}", "description": "${{ github.event.issue.body }}", "url": "${{ github.event.issue.html_url }}", "timestamp": "${{ github.event.issue.created_at }}", "color": 13158, \
+                          "author": { "name": "${{ github.event.repository.name }}", "url": "${{ github.event.repository.html_url }}", "icon_url": "https://avatars.githubusercontent.com/u/98675783" } }] }' \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}
