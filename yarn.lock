@@ -50,9 +50,9 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 17.0.33
-  resolution: "@types/node@npm:17.0.33"
-  checksum: 44c0436db2851ddbfc2133e132e48f1a261f115cddad0dc3e52ce6dd66f3e667f419d0a0b13f873cd280a2f4ade2128174f4c0b4c4c58ff94639a249e392f8ee
+  version: 17.0.35
+  resolution: "@types/node@npm:17.0.35"
+  checksum: 89b978da7d7926f71b241a54a020b2981cc50312d481f3c22fc6aac31f2db7405a1cfce5727b2b16741f7f6553716ed52053f9510971ce26b247fe4d123adc51
   languageName: node
   linkType: hard
 
@@ -642,9 +642,9 @@ __metadata:
   linkType: hard
 
 "object-inspect@npm:^1.12.0":
-  version: 1.12.0
-  resolution: "object-inspect@npm:1.12.0"
-  checksum: 841b5b480e36dc94d1c764dc85e1752bb01a0d7eccf366bacb4731877a29fa8196118c8b58b7a4e4961f0447f9dac97950e6f04eca259fb02a325fd90066173d
+  version: 1.12.1
+  resolution: "object-inspect@npm:1.12.1"
+  checksum: 709fa8a439b50f797a08c4c07cc06248b6010de8aa91a62306ac198e76810ccd247cc4e1635c26ae7413a7504c86cc8e4e6a4c00f2be8664a52a586bd9fad90a
   languageName: node
   linkType: hard
 
