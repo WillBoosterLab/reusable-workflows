@@ -521,9 +521,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lint-staged@npm:12.4.1":
-  version: 12.4.1
-  resolution: "lint-staged@npm:12.4.1"
+"lint-staged@npm:12.4.2":
+  version: 12.4.2
+  resolution: "lint-staged@npm:12.4.2"
   dependencies:
     cli-truncate: "npm:^3.1.0"
     colorette: "npm:^2.0.16"
@@ -541,7 +541,7 @@ __metadata:
     yaml: "npm:^1.10.2"
   bin:
     lint-staged: bin/lint-staged.js
-  checksum: da2612b2c7a4eaf6ce172172c7231a3a2ca4b1d72ca710880b7be0bc20f0be172e014af8fc1b18be5212d5499810692fcb0769abaa398742b72ae2acf1a0ac9a
+  checksum: f2af5065df27088555058c712237e8b11bebbaea80adaddf31b67c0224f459a783f43716df9541a7501d3074363d755065e105e5fd7ea167617c557e7c76692f
   languageName: node
   linkType: hard
 
@@ -754,7 +754,7 @@ __metadata:
     "@willbooster/prettier-config": "npm:9.0.0"
     "@willbooster/renovate-config": "npm:9.3.0"
     husky: "npm:7.0.4"
-    lint-staged: "npm:12.4.1"
+    lint-staged: "npm:12.4.2"
     pinst: "npm:3.0.0"
     prettier: "npm:2.6.2"
     sort-package-json: "npm:1.57.0"
