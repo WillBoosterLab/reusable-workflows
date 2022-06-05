@@ -50,9 +50,9 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 17.0.36
-  resolution: "@types/node@npm:17.0.36"
-  checksum: 2f7b53130e92a3375188e775faa50e36592f3554a73fd19a12c6820cb63da9d48c65040fd6d38107ac3b766656313b29de36f9100dc423feb6bef81f4531ea2c
+  version: 17.0.40
+  resolution: "@types/node@npm:17.0.40"
+  checksum: 1204f5cae9be50ee8230e2b6a95c7836060a3c1411470e03b66772d840137c2ee65357c59f1f559205a3f3137d036df3fdf1a741d92caea175447cdf40409bc9
   languageName: node
   linkType: hard
 
@@ -214,9 +214,9 @@ __metadata:
   linkType: hard
 
 "colorette@npm:^2.0.16":
-  version: 2.0.16
-  resolution: "colorette@npm:2.0.16"
-  checksum: 68ff163b8954e35676cf7b3176ef44df6a9c3d61d714b580dcc86b99b52e5530d23d6a32b8ff6e11aca4d2d373dd9af063ead6bc10cae40bc1d1c56de269f106
+  version: 2.0.17
+  resolution: "colorette@npm:2.0.17"
+  checksum: 56f252aece7c84cdd9250dbddb1ac23c45d85a7d8784c68ab3fb4579d5f39458d720942d8303c711149278ced84dc3a4940a20cdfbf68b3ca143d8b73f9d12ab
   languageName: node
   linkType: hard
 
