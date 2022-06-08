@@ -52,7 +52,8 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         run: |
-          git pull origin wbfy --rebase
+          git fetch origin wbfy
+          git merge origin/wbfy
           git push origin main --no-verify
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
