@@ -52,7 +52,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         run: |
-          git merge origin/wbfy
+          git pull origin wbfy
           git push origin main --no-verify
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
