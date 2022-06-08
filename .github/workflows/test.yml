@@ -67,7 +67,7 @@ jobs:
           NODE_VERSIONS=""
           if [[ "$(cat .tool-versions)" != *"node"* ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
-            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 17.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
+            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "::set-output name=json::[\"$NODE_VERSIONS\"]"
   test:
