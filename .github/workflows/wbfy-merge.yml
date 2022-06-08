@@ -1,4 +1,4 @@
-name: Merge wbfy branch
+name: Merge wbfy
 on:
   workflow_call:
     inputs:
@@ -15,7 +15,7 @@ on:
       GH_TOKEN:
         required: true
 jobs:
-  merge-wbfy:
+  wbfy-merge:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
