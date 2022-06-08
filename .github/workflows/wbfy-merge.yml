@@ -53,7 +53,9 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         run: |
-          git pull origin wbfy --ff-only || true
+          git config --global user.email "bot@willbooster.com"
+          git config --global user.name "WillBooster Inc."
+          git merge origin/wbfy -m "chore: willboosterify this repo" || true
           git push origin main --no-verify || true
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
