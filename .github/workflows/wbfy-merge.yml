@@ -1,4 +1,4 @@
-name: Willboosterify
+name: Merge wbfy branch
 on:
   workflow_call:
     inputs:
@@ -15,22 +15,20 @@ on:
       GH_TOKEN:
         required: true
 jobs:
-  wbfy:
+  merge-wbfy:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
-      - run: |
+      - name: Decide action
+        id: decide-action
+        run: |
           mkdir -p temp
-
           curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs > temp/wbfy.json
 
-          curl -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/willbooster/firebase-scripts/actions/runs > temp/wbfy.json
-
           cat > temp/wbfy.js << EOF
-          const actions = require('temp/wbfy.json');
+          const actions = require('./wbfy.json');
           for (const run of actions?.workflow_runs ?? []) {
             if (run.name !== 'Test') continue;
             if (run.head_branch !== 'wbfy') continue;
@@ -45,7 +43,21 @@ jobs:
           }
           EOF
 
-          COMMAND=$(node temp/wbfy.js)
-          echo $COMMAND
-          if [[ $COMMAND == "merge" ]]; then echo yeah1; fi
-          if [[ $COMMAND == "pr" ]]; then echo yeah2; fi
+          echo "::set-output name=action::$(node temp/wbfy.js)";
+
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        uses: actions/checkout@v3
+        # To trigger other workflows when running 'git push'
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        run: |
+          git merge origin/wbfy
+          git push origin main --no-verify
+
+      - if: ${{ steps.decide-action.outputs.action == 'pr' }}
+        run: |
+          curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls \
+            -X POST -d '{"head":"wbfy","base":"main","title":"chore: willboosterify this repo"}' || true
