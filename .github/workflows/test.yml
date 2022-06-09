@@ -40,7 +40,7 @@ jobs:
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
-          concurrent_skipping: same_content_newer
+          concurrent_skipping: outdated_runs
           paths_ignore: '["**/*.md", "**/docs/**"]'
   detect-node-version-matrix:
     needs: pre
