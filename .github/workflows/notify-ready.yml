@@ -1,4 +1,4 @@
-name: Notify ready issue
+name: Notify ready
 
 on:
   workflow_call:
@@ -11,7 +11,7 @@ on:
         required: true
 
 jobs:
-  notify:
+  notify-ready:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
     steps:
