@@ -1,0 +1,22 @@
+name: Request review
+
+on:
+  workflow_call:
+    inputs:
+      reviewers:
+        required: true
+        type: string
+      target_organization:
+        required: false
+        type: string
+
+jobs:
+  request-review:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    steps:
+      - run: |
+          curl -H "Content-Type: application/json" \
+               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -d "{ \"body\": \"${{ inputs.reviewers }} Please review this PR! :rocket:\" }" \
+               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments
