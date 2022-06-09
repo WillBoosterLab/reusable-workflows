@@ -65,8 +65,7 @@ jobs:
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
-          concurrent_skipping: outdated_runs
-          paths_ignore: '["*.md"]'
+          paths_ignore: '["*.md"]' # Ignore only markdown files on root
   deploy:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}

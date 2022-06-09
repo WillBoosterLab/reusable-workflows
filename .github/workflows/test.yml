@@ -30,7 +30,7 @@ on:
         required: false
 jobs:
   pre:
-    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && !contains(github.head_ref, 'renovate/') }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
@@ -40,7 +40,6 @@ jobs:
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
-          concurrent_skipping: outdated_runs
           paths_ignore: '["**/*.md", "**/docs/**"]'
   detect-node-version-matrix:
     needs: pre
