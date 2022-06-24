@@ -18,6 +18,9 @@ on:
       github_hosted_runner:
         required: false
         type: boolean
+      runs_on:
+        required: false
+        type: string
       target_organization:
         required: false
         type: string
@@ -31,7 +34,7 @@ on:
 jobs:
   pre:
     if: ${{ !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:

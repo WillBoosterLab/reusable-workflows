@@ -30,6 +30,9 @@ on:
       require_gcloud:
         required: false
         type: boolean
+      runs_on:
+        required: false
+        type: string
       server_url:
         required: false
         type: string
@@ -69,7 +72,7 @@ jobs:
   deploy:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     env:
       # constants
       GCLOUD_VERSION: 379.0.0
