@@ -135,7 +135,10 @@ jobs:
           echo "node: $(node -v)"
           echo "yarn: $(yarn -v)"
           if command -v python &> /dev/null; then echo "python: $(python --version)"; fi
-          if command -v poetry &> /dev/null; then echo "poetry: $(poetry --version)"; fi
+          if command -v poetry &> /dev/null; then
+            echo "poetry: $(poetry --version)"
+            poetry config virtualenvs.in-project true
+          fi          
           if command -v gcloud &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
           if [[ "$(yarn -v)" == "1."* ]]; then
             echo "::set-output name=yarn-dir::$(yarn cache dir)"
