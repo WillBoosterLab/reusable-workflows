@@ -72,8 +72,8 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     env:
       # constants
-      GCLOUD_VERSION: 366.0.0
-      PYTHON_VERSION: 3.9.9
+      GCLOUD_VERSION: 379.0.0
+      PYTHON_VERSION: 3.9.13
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
       FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
