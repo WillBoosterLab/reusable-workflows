@@ -119,14 +119,14 @@ jobs:
         # https://stackoverflow.com/a/677212
         run: |
           echo "node: $(node -v)"
-          echo "yarn: $(yarn -v)"
-          if command -v python &> /dev/null; then echo "python: $(python --version)"; fi
-          if command -v poetry &> /dev/null; then
-            echo "poetry: $(poetry --version)"
+          YARN=$(yarn -v); echo "yarn: $YARN"
+          if PYTHON=$(python --version 2> /dev/null); then echo "python: $PYTHON"; fi
+          if POETRY=$(poetry --version 2> /dev/null); then
+            echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
           fi
-          if command -v gcloud &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
-          if [[ "$(yarn -v)" == "1."* ]]; then
+          if gcloud -v &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
+          if [[ "$YARN" == "1."* ]]; then
             echo "::set-output name=yarn-dir::$(yarn cache dir)"
           fi
 
