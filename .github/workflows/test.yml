@@ -55,19 +55,19 @@ jobs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
       - uses: actions/checkout@v3
-      # We need Node.js only if [[ "$(cat .tool-versions)" != *"node"* ]]
+      # We need Node.js only if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]]
       - id: check-node
         run: |
-          if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! $(node --version) ]]; then
+          if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]] && [[ ! $(node --version) ]]; then
             echo "::set-output name=require-install::1"
           fi
       - if: ${{ steps.check-node.outputs.require-install }}
         uses: actions/setup-node@v3
       - id: detect-node-version-matrix
-        # We must use actions/setup-node if no Node.js description exists in .tool-versions
+        # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
           NODE_VERSIONS=""
-          if [[ "$(cat .tool-versions)" != *"node"* ]]; then
+          if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
             NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
