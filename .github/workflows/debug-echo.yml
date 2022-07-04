@@ -1,0 +1,29 @@
+name: Show a given text (self-hosted)
+
+on:
+  workflow_call:
+    inputs:
+      cpu_arch:
+        required: false
+        type: string
+      github_hosted_runner:
+        required: false
+        type: boolean
+      text:
+        required: true
+        type: string
+    outputs:
+      text:
+        value: ${{ jobs.echo.outputs.text }}
+
+jobs:
+  echo:
+    runs-on: self-hosted
+    outputs:
+      text: ${{ steps.echo.outputs.text }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: willbooster/asdf-actions/install@main
+      - id: echo
+        run: |
+          echo "::set-output name=text::${{ inputs.text }}"
