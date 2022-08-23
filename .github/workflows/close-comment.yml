@@ -1,0 +1,31 @@
+name: Add close comment
+
+on:
+  workflow_call:
+    inputs:
+      target_organization:
+        required: false
+        type: string
+
+jobs:
+  close-comment:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    steps:
+      - run: |
+          branchName=${{github.head_ref}}
+          branchName=($(echo $branchName | tr "_" "-"))
+          branchName=($(echo $branchName | tr "-" "\n"))
+          comment=$(curl \
+            -H "Accept:application/vnd.github+json" \
+            -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }} )
+          commentBody=$(echo $comment | jq .body)
+          commentBody=$(echo $commentBody | tr -d "\"")
+          newBody="close #$branchName\r\n$commentBody"
+          curl \
+            -X PATCH \
+            -H "Accept:application/vnd.github+json" \
+            -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }} \
+            -d "{\"body\": \"${newBody}\"}"
