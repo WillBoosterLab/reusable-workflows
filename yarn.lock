@@ -56,19 +56,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@willbooster/prettier-config@npm:9.0.0":
-  version: 9.0.0
-  resolution: "@willbooster/prettier-config@npm:9.0.0"
+"@willbooster/prettier-config@npm:9.0.1":
+  version: 9.0.1
+  resolution: "@willbooster/prettier-config@npm:9.0.1"
   peerDependencies:
     prettier: ">=2"
-  checksum: abe42ef2f483dfae916ff82f6faf0a31ec9e93f54a7960760965ec0708b16c08d80e0440197089c8632b0f30c0185cd681670b71f7c9d70fdfc858b0f8c59c67
+  checksum: 21863a42e112eddace475a49a952a33ed3191871007153445abd5dbb1cfe4553d36d22b1302cf8ce573178a58ea6e57599bf9191fa40f5d6ab0c91c09209148c
   languageName: node
   linkType: hard
 
-"@willbooster/renovate-config@npm:9.3.0":
-  version: 9.3.0
-  resolution: "@willbooster/renovate-config@npm:9.3.0"
-  checksum: 3cea366e9aa096e85e0015de6f7f084c67f049f241830a944cebfdb9197883ee1106a56b182aec1204f7cf601a46558b5aa91cd0e2672e75c2f5dab4f43ad421
+"@willbooster/renovate-config@npm:9.3.2":
+  version: 9.3.2
+  resolution: "@willbooster/renovate-config@npm:9.3.2"
+  checksum: 9fe015d1efc783c34680f36205f4a57ea618b9fd9f8c83f97f820ecaeef53d2e3b8c10d1bb3e1587296e93c841727c196d28b8b5bd9ab89632e467af911ee42c
   languageName: node
   linkType: hard
 
@@ -773,8 +773,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "reusable-workflows@workspace:."
   dependencies:
-    "@willbooster/prettier-config": "npm:9.0.0"
-    "@willbooster/renovate-config": "npm:9.3.0"
+    "@willbooster/prettier-config": "npm:9.0.1"
+    "@willbooster/renovate-config": "npm:9.3.2"
     husky: "npm:8.0.1"
     lint-staged: "npm:13.0.3"
     pinst: "npm:3.0.0"
