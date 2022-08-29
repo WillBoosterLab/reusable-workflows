@@ -47,11 +47,11 @@ on:
         required: false
       DOT_ENV:
         required: false
-      FIREBASE_TOKEN:
-        required: false
       FLY_API_TOKEN:
         required: false
       GCP_SA_KEY_JSON:
+        required: false
+      GCP_SA_KEY_JSON_FOR_FIREBASE:
         required: false
       GH_TOKEN:
         required: false
@@ -79,9 +79,10 @@ jobs:
       PYTHON_VERSION: 3.9.13
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
-      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+      GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - uses: fkirc/skip-duplicate-actions@master
@@ -185,6 +186,10 @@ jobs:
         name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
+
+      - if: ${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
+        name: Create credential file for Firebase
+        run: echo "${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}" > $GOOGLE_APPLICATION_CREDENTIALS
 
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
