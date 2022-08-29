@@ -187,7 +187,7 @@ jobs:
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
 
-      - if: ${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
+      - if: ${{ env.GCP_SA_KEY_JSON_FOR_FIREBASE }}
         name: Create credential file for Firebase
         run: echo "${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}" > $GOOGLE_APPLICATION_CREDENTIALS
 
