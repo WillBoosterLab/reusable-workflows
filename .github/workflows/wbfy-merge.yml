@@ -57,8 +57,8 @@ jobs:
         run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
-          git merge origin/wbfy --squash || true
-          git commit -m "chore: willboosterify this repo" --no-verify
+          git merge origin/wbfy --squash --no-verify || true
+          git commit -m "chore: willboosterify this repo" --no-verify || true
           git push origin main --no-verify || true
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
