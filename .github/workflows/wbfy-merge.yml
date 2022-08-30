@@ -54,9 +54,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        # Unset core.hooksPath to disable husky
         run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
+          git config --unset core.hooksPath
           git merge origin/wbfy --squash --no-verify || true
           git commit -m "chore: willboosterify this repo" --no-verify || true
           git push origin main --no-verify || true
