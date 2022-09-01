@@ -10,6 +10,7 @@ on:
         required: false
         type: string
       dot_env_path:
+        default: .env
         required: false
         type: string
       environment:
@@ -19,15 +20,6 @@ on:
         required: false
         type: boolean
       ignore_renovate:
-        required: false
-        type: boolean
-      notify_discord:
-        required: false
-        type: boolean
-      require_fly:
-        required: false
-        type: boolean
-      require_gcloud:
         required: false
         type: boolean
       runs_on:
@@ -77,20 +69,21 @@ jobs:
       # constants
       GCLOUD_VERSION: 379.0.0
       PYTHON_VERSION: 3.9.13
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
-      GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
-      GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+      HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      HAS_FLY_API_TOKEN: ${{ !!secrets.FLY_API_TOKEN }}
+      HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
+      HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
     steps:
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
       - uses: actions/checkout@v3
-      - if: ${{ inputs.dot_env_path }}
-        run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
+        run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
@@ -119,7 +112,7 @@ jobs:
             YARN_VERSION=$(npm show yarn version)
             asdf install yarn $(YARN_VERSION) && asdf local yarn $(YARN_VERSION)
           fi
-      - if: ${{ inputs.require_gcloud }}
+      - if: ${{ env.HAS_GCP_SA_KEY_JSON == 'true' }}
         name: Install gcloud with asdf
         run: |
           if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
@@ -175,30 +168,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-berry-
 
-      - if: ${{ inputs.require_fly }}
+      - if: ${{ env.HAS_FLY_API_TOKEN == 'true' }}
         name: Install fly
         run: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
-      - if: ${{ inputs.require_gcloud }}
+      - if: ${{ env.HAS_GCP_SA_KEY_JSON == 'true' }}
         uses: google-github-actions/auth@v0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
-      - if: ${{ inputs.require_gcloud }}
+      - if: ${{ env.HAS_GCP_SA_KEY_JSON == 'true' }}
         name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
       - run: yarn install
 
-      - if: ${{ env.GCP_SA_KEY_JSON_FOR_FIREBASE }}
+      - if: ${{ env.HAS_GCP_SA_KEY_JSON_FOR_FIREBASE == 'true' }}
         name: Create credential file for Firebase
         run: echo '${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}' > $GOOGLE_APPLICATION_CREDENTIALS
 
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
-      - run: if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
-      - run: yarn ${{ inputs.deploy_command || 'deploy' }}
+      - run: |
+          if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
+          yarn ${{ inputs.deploy_command || 'deploy' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - if: ${{ inputs.notify_discord && inputs.environment == 'staging' }}
+      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'staging' }}
         run: |
           curl -X POST -H 'Content-type: application/json' --data "{\"content\":\"ステージング環境 (${{ inputs.server_url }}) が更新されました。\n更新時に含まれるコミット一覧: https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
-      - if: ${{ inputs.notify_discord && inputs.environment == 'production' }}
+      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'production' }}
         run: |
           curl -X POST -H 'Content-type: application/json' --data "{\"content\":\"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n本番環境 (${{ inputs.server_url }}) が更新されました。\n更新時に含まれるコミット一覧: https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
 

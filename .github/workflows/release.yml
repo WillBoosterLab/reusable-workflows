@@ -7,6 +7,7 @@ on:
         required: false
         type: string
       dot_env_path:
+        default: .env
         required: false
         type: string
       github_hosted_runner:
@@ -30,9 +31,11 @@ jobs:
   release:
     if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    env:
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
       - uses: actions/checkout@v3
-      - if: ${{ inputs.dot_env_path }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners

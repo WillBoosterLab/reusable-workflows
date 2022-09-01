@@ -65,6 +65,8 @@ jobs:
           git config --global user.name "WillBooster Inc."
           git checkout -B wbfy
           git add -A
-          if [[ $(git commit -m "chore: willboosterify this repo" --no-verify) ]]; then
-            git push origin wbfy -f --no-verify
+          if [[ $(git commit -m "chore: willboosterify this repo") ]]; then
+            git push origin wbfy -f
           fi
+        env:
+          HUSKY: 0

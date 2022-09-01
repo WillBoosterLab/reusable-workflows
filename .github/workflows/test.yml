@@ -10,6 +10,7 @@ on:
         required: false
         type: string
       dot_env_path:
+        default: .env
         required: false
         type: string
       environment:
@@ -75,6 +76,8 @@ jobs:
   test:
     needs: detect-node-version-matrix
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    env:
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     strategy:
       matrix:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
@@ -84,7 +87,7 @@ jobs:
         with:
           cancel_others: true
       - uses: actions/checkout@v3
-      - if: ${{ inputs.dot_env_path }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo "${{ secrets.DOT_ENV }}" > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
@@ -177,7 +180,7 @@ jobs:
             done
             yarn lint-staged --allow-empty
           fi
-      - if: ${{ env.GITHUB_TOKEN != '' }}
+      - if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'push' && github.ref_name == github.event.repository.default_branch }}
         run: |
           if [[ "$(cat package.json)" == *'"semantic-release":'* ]]; then
             if [[ "$(cat package.json)" == *'"release-test":'* ]]; then

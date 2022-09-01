@@ -59,13 +59,15 @@ jobs:
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
           git config --unset core.hooksPath
-          git merge origin/wbfy --squash --no-verify || true
-          git commit -m "chore: willboosterify this repo" --no-verify || true
-          git push origin main --no-verify || true
+          git merge origin/wbfy --squash || true
+          git commit -m "chore: willboosterify this repo" || true
+          git push origin ${{ github.event.repository.default_branch }} || true
+        env:
+          HUSKY: 0
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
           curl -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/pulls \
-            -X POST -d '{"head":"wbfy","base":"main","title":"chore: willboosterify this repo"}' || true
+            -X POST -d '{"head":"wbfy","base":"${{ github.event.repository.default_branch }}","title":"chore: willboosterify this repo"}' || true
