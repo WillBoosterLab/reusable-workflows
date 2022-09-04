@@ -48,15 +48,6 @@ jobs:
             echo "::set-output name=yarn-dir::$(yarn cache dir)"
           fi
 
-      - uses: actions/cache@v3
-        with:
-          path: .yarn
-          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
-          # c.f. https://github.com/AllanChain/blog/issues/98
-          key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-berry-
-
       - run: yarn dlx wbfy --version && yarn dlx wbfy .
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

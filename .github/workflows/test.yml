@@ -142,28 +142,6 @@ jobs:
           key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
-      - uses: actions/cache@v3
-        with:
-          path: .yarn
-          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
-          # c.f. https://github.com/AllanChain/blog/issues/98
-          key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-berry-
-      - uses: actions/cache@v3
-        with:
-          path: ~/.cache/firebase/emulators
-          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
-          # c.f. https://github.com/AllanChain/blog/issues/98
-          key: ${{ runner.os }}-firebase-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-firebase-
-      - uses: actions/cache@v3
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/recommender/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
 
       - run: yarn install
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi

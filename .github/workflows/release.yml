@@ -85,14 +85,6 @@ jobs:
           key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
-      - uses: actions/cache@v3
-        with:
-          path: .yarn
-          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
-          # c.f. https://github.com/AllanChain/blog/issues/98
-          key: ${{ runner.os }}-yarn-berry-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-berry-
 
       - run: yarn install
       - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
