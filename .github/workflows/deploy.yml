@@ -177,9 +177,14 @@ jobs:
         run: echo '${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}' > $GOOGLE_APPLICATION_CREDENTIALS
 
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
-      - run: |
-          if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
-          yarn ${{ inputs.deploy_command || 'deploy' }}
+      
+      - uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 30
+          max_attempts: ${{ env.HAS_FLY_API_TOKEN == 'true' && env.HAS_GCP_SA_KEY_JSON == 'true' && 3 || 1 }}
+          command: |
+            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
+            yarn ${{ inputs.deploy_command || 'deploy' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
