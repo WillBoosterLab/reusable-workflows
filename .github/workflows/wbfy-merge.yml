@@ -59,9 +59,9 @@ jobs:
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
           git config --unset core.hooksPath
-          git merge origin/wbfy --squash || true
-          git commit -m "chore: willboosterify this repo" || true
-          git push origin ${{ github.event.repository.default_branch }} || true
+          git merge origin/wbfy --squash
+          git commit -m "chore: willboosterify this repo"
+          git push origin ${{ github.event.repository.default_branch }}
         env:
           HUSKY: 0
 
