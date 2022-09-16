@@ -177,7 +177,7 @@ jobs:
         run: echo '${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}' > $GOOGLE_APPLICATION_CREDENTIALS
 
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
-      
+
       - uses: nick-fields/retry@v2
         with:
           timeout_minutes: 30
@@ -194,7 +194,7 @@ jobs:
         run: |
           curl -X POST -H "Content-Type: application/json" \
                --data '{
-                  "username": "@WillBooster-Bot",
+                  "username": "WillBooster Bot",
                   "avatar_url": "https://avatars.githubusercontent.com/u/98675783",
                   "content": "[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) のステージング環境 (${{ inputs.server_url }}) が更新されました。\n変更内容は[更新時に含まれるコミット一覧](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }})から確認できます。"
                }' \
@@ -203,7 +203,7 @@ jobs:
         run: |
           curl -X POST -H "Content-Type: application/json" \
                --data '{
-                  "username": "@WillBooster-Bot",
+                  "username": "WillBooster Bot",
                   "avatar_url": "https://avatars.githubusercontent.com/u/98675783",
                   "content": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の本番環境 (${{ inputs.server_url }}) が更新されました。\n変更内容は[更新時に含まれるコミット一覧](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }})から確認できます。\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                }' \
