@@ -1,24 +1,13 @@
 name: Debug
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   debug:
-    runs-on: wb-mac-1
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
       - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PUBLIC_GH_BOT_PAT }}
       - run: |
-          yarn --version
-          asdf shell yarn 1.22.18
-          yarn --version
-      - run: |
-          yarn --version
-          asdf shell yarn 1.22.17
-          yarn --version
-      - run: |
-          yarn --version
-          asdf shell yarn 1.22.18
-          yarn --version
+          pwd
+          ls -al
