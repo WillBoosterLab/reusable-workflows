@@ -111,6 +111,6 @@ jobs:
                --data '{
                   "username": "WillBooster Bot",
                   "avatar_url": "https://avatars.githubusercontent.com/u/98675783",
-                  "content": "[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) をリリースしました。\n変更内容は[更新時に含まれるコミット一覧](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }})から確認できます。"
+                  "content": "[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) $(git describe --always --tags) をリリースしました。\n変更内容は[更新時に含まれるコミット一覧](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }})から確認できます。"
                }' \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
