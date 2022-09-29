@@ -190,13 +190,13 @@ jobs:
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'staging' }}
+      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment != 'production' }}
         run: |
           curl -X POST -H "Content-Type: application/json" \
                --data "{
                   \"username\": \"WillBooster Bot\",
                   \"avatar_url\": \"https://avatars.githubusercontent.com/u/98675783\",
-                  \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) のステージング環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}) に更新しました。\"
+                  \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の${{inputs.environment}}環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}) に更新しました。\"
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'production' }}
