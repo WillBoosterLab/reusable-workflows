@@ -162,7 +162,11 @@ jobs:
 
       - if: ${{ env.HAS_FLY_API_TOKEN == 'true' }}
         name: Install fly
-        run: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          command: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
       - if: ${{ env.HAS_GCP_SA_KEY_JSON == 'true' }}
         uses: google-github-actions/auth@v0
         with:
@@ -178,7 +182,8 @@ jobs:
 
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
 
-      - uses: nick-fields/retry@v2
+      - name: Deploy
+        uses: nick-fields/retry@v2
         with:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 3 || 1 }}
