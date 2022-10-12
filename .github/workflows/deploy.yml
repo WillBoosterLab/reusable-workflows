@@ -140,11 +140,10 @@ jobs:
           if [[ "$YARN" == "1."* ]]; then
             echo "::set-output name=yarn-dir::$(yarn cache dir)"
           fi
-          echo "::set-output name=git-revision::$(git describe --always --tags)"
       - name: Set environment variables
         run: |
           echo "PATH=$HOME/.fly/bin:$PATH" >> $GITHUB_ENV
-          echo "VERSION=${{ steps.env-info.outputs.git-revision }}" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --always --tags)" >> $GITHUB_ENV
       - name: Verify environment variables
         run: |
           echo ${PATH}
@@ -201,7 +200,7 @@ jobs:
                --data "{
                   \"username\": \"WillBooster Bot\",
                   \"avatar_url\": \"https://avatars.githubusercontent.com/u/98675783\",
-                  \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の${{inputs.environment}}環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}) に更新しました。\"
+                  \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の${{inputs.environment}}環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/$(git describe --always --tags)) に更新しました。\"
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'production' }}
@@ -210,7 +209,7 @@ jobs:
                --data "{
                   \"username\": \"WillBooster Bot\",
                   \"avatar_url\": \"https://avatars.githubusercontent.com/u/98675783\",
-                  \"content\": \"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の本番環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/${{ steps.env-info.outputs.git-revision }}) に更新しました。\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"
+                  \"content\": \"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n[${{ github.event.repository.name }}](${{ github.event.repository.html_url }}) の本番環境 (${{ inputs.server_url }}) を [$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/$(git describe --always --tags)) に更新しました。\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\"
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
 
