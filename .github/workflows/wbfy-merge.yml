@@ -60,10 +60,7 @@ jobs:
           git config --global user.name "WillBooster Inc."
           git config --unset core.hooksPath
           git merge origin/wbfy --squash
-          if git diff-index --quiet HEAD --; then
-            echo "No changes found"
-          else
-            git commit -m "chore: willboosterify this repo"
+          if git commit -m "chore: willboosterify this repo"; then
             git push origin ${{ github.event.repository.default_branch }}
           fi
         env:
