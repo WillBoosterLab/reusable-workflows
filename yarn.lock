@@ -50,9 +50,9 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 18.8.3
-  resolution: "@types/node@npm:18.8.3"
-  checksum: 19e358e2b43e1ee466c2c665e1ae9185bdac0a27493ab8ae6c72876e585fdb250eafe052df7744da102f31b013a49de8930aee6938d36d18fdceecc8f049807b
+  version: 18.11.0
+  resolution: "@types/node@npm:18.11.0"
+  checksum: 29cddf70ce75ff9c39849a1d92111031be8614220b4bb7c0ee02ce83c14138f4b067557d8654fa32941111e02664366b007017ef35a6cb6926842270369deaae
   languageName: node
   linkType: hard
 
@@ -115,9 +115,9 @@ __metadata:
   linkType: hard
 
 "ansi-styles@npm:^6.0.0":
-  version: 6.1.1
-  resolution: "ansi-styles@npm:6.1.1"
-  checksum: d7a90f12d9821cb1ba635227cea0b4516a27c29395ae0ed566a331afb923e7cf719a1a3fec06424d1d1b8b970fdfd825cb4c3ad327294a2a35577a61fa80b15c
+  version: 6.2.1
+  resolution: "ansi-styles@npm:6.2.1"
+  checksum: 86fe3fc999c89775171631b32920d1fbf8adc4225895db376057b5a5e6fdcf837ae994ca08756f0a676c0dd8c74e58a7e87515d1fa16d6fcfffdf9069d579e90
   languageName: node
   linkType: hard
 
