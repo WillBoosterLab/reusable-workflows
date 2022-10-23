@@ -26,4 +26,4 @@ jobs:
       - uses: willbooster/asdf-actions/install@main
       - id: echo
         run: |
-          echo "::set-output name=text::${{ inputs.text }}"
+          echo "text=${{ inputs.text }}" >> $GITHUB_OUTPUT

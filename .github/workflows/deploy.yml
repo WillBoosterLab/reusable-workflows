@@ -91,10 +91,10 @@ jobs:
         id: get-ver
         run: |
           if [[ -f .tool-versions ]]; then
-            echo "::set-output name=exist-tool-versions::1";
+            echo "exist-tool-versions=1" >> $GITHUB_OUTPUT
           fi
           if [[ "$(cat .tool-versions)" != *"node"* ]]; then
-            echo "::set-output name=node::$(cat .node-version || echo 16)";
+            echo "node=$(cat .node-version || echo 16)" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
         uses: willbooster/asdf-actions/install@main
@@ -138,7 +138,7 @@ jobs:
           fi
           if gcloud -v &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
           if [[ "$YARN" == "1."* ]]; then
-            echo "::set-output name=yarn-dir::$(yarn cache dir)"
+            echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
           fi
       - name: Set environment variables
         run: |

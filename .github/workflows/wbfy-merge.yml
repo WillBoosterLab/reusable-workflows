@@ -44,7 +44,7 @@ jobs:
           }
           EOF
 
-          echo "::set-output name=action::$(node temp/wbfy.js)";
+          echo "action=$(node temp/wbfy.js)" >> $GITHUB_OUTPUT
           rm -Rf temp
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}

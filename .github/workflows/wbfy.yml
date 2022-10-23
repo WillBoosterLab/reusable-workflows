@@ -33,7 +33,7 @@ jobs:
         id: get-ver
         run: |
           if [[ -f .tool-versions ]] || [[ -f .node-version ]]; then
-            echo "::set-output name=exist-version::1";
+            echo "exist-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.get-ver.outputs.exist-version }}
         uses: willbooster/asdf-actions/install@main
@@ -45,7 +45,7 @@ jobs:
           echo "node: $(node -v)"
           echo "yarn: $(yarn -v)"
           if [[ "$(yarn -v)" == "1."* ]]; then
-            echo "::set-output name=yarn-dir::$(yarn cache dir)"
+            echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
           fi
 
       - run: yarn dlx wbfy --version && yarn dlx wbfy .
