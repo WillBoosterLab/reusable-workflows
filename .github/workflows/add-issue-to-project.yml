@@ -6,6 +6,11 @@ on:
       target_organization:
         required: false
         type: string
+    secrets:
+      GH_PROJECT_URL:
+        required: true
+      GH_BOT_PAT:
+        required: true
 
 jobs:
   add-to-project:
