@@ -28,16 +28,9 @@ jobs:
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
-      - name: Get Node.js version
-        id: get-ver
-        run: |
-          if [[ -f .tool-versions ]] || [[ -f .node-version ]]; then
-            echo "exist-version=1" >> $GITHUB_OUTPUT
-          fi
-      - if: ${{ steps.get-ver.outputs.exist-version }}
-        uses: willbooster/asdf-actions/install@main
       - uses: actions/setup-node@v3
+        with:
+          node-version: 18
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212

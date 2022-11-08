@@ -41,32 +41,33 @@ jobs:
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
-      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      # However, we must use asdf if .tool-versions since it may install some tools other than Node.js
-      - name: Get Node.js version
-        id: get-ver
+      - name: Check version files
+        id: check-ver
         run: |
-          if [[ -f .tool-versions ]]; then
-            echo "exist-tool-versions=1" >> $GITHUB_OUTPUT
+          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+            echo "exist-version-files=1" >> $GITHUB_OUTPUT
           fi
-          if [[ "$(cat .tool-versions)" != *"node"* ]]; then
-            echo "node=$(cat .node-version || echo 16)" >> $GITHUB_OUTPUT
-          fi
-      - if: ${{ steps.get-ver.outputs.exist-tool-versions }}
+      - if: ${{ steps.check-ver.outputs.exist-version-files }}
         uses: willbooster/asdf-actions/install@main
-      - if: ${{ steps.get-ver.outputs.node }}
+      - if: ${{ !steps.check-ver.outputs.exist-version-files }}
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ steps.get-ver.outputs.node }}
-      - if: ${{ steps.get-ver.outputs.node }}
-        name: Install Node.js with asdf
+          node-version: ${{ matrix.node-version || 18 }}
+      - name: Install Node.js with asdf if it doesn't exist
         run: |
-          asdf plugin add nodejs || true
-          asdf plugin add yarn || true
-          asdf local nodejs system && asdf local yarn system
+          if [[ ! $(node --version) ]]; then
+            asdf plugin add nodejs || true
+            asdf local nodejs system
+            node --version
+          fi
           if [[ ! $(yarn --version) ]]; then
-            YARN_VERSION=$(npm show yarn version)
-            asdf install yarn $(YARN_VERSION) && asdf local yarn $(YARN_VERSION)
+            asdf plugin add yarn || true
+            asdf local yarn system
+            if [[ ! $(yarn --version) ]]; then
+              YARN_VERSION=$(npm show yarn version)
+              asdf install yarn $(YARN_VERSION)
+              asdf local yarn $(YARN_VERSION)
+            fi
           fi
       - name: Show environment information
         id: env-info

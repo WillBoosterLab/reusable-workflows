@@ -31,7 +31,7 @@ jobs:
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
       - name: Show environment information
         run: |
           echo "node: $(node -v)"
