@@ -186,7 +186,7 @@ jobs:
         uses: nick-fields/retry@v2
         with:
           timeout_minutes: 60
-          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 3 || 1 }}
+          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 5 || 1 }}
           command: |
             if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
             yarn run ${{ inputs.deploy_command || 'deploy' }}
