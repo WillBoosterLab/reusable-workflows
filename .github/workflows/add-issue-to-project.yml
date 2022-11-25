@@ -17,7 +17,7 @@ jobs:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
     steps:
-      - uses: actions/add-to-project@v0.3.0
+      - uses: actions/add-to-project@v0.4.0
         with:
           project-url: ${{ secrets.GH_PROJECT_URL }}
           github-token: ${{ secrets.GH_BOT_PAT }}
