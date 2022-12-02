@@ -55,12 +55,13 @@ jobs:
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
-      - id: skip_check
-        uses: fkirc/skip-duplicate-actions@v5.2.0
-        with:
-          cancel_others: false
-          skip_after_successful_duplicate: true
-          paths_ignore: '["*.md"]' # Ignore only markdown files on root
+      - run: echo "Disable fkirc/skip-duplicate-actions temporally due to 502 error"
+#      - id: skip_check
+#        uses: fkirc/skip-duplicate-actions@master
+#        with:
+#          cancel_others: false
+#          skip_after_successful_duplicate: true
+#          paths_ignore: '["*.md"]' # Ignore only markdown files on root
   deploy:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
@@ -78,9 +79,9 @@ jobs:
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
     steps:
-      - uses: fkirc/skip-duplicate-actions@v5.2.0
-        with:
-          cancel_others: true
+#      - uses: fkirc/skip-duplicate-actions@master
+#        with:
+#          cancel_others: true
       - uses: actions/checkout@v3
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
