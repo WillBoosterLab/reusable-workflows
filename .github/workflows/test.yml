@@ -40,12 +40,12 @@ jobs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
+        uses: fkirc/skip-duplicate-actions@v5.2.0
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
           paths_ignore: '["**/*.md", "**/docs/**"]'
-  detect-node-version-matrix:
+  detect-node-version-matrix: 
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
@@ -83,7 +83,7 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-      - uses: fkirc/skip-duplicate-actions@master
+      - uses: fkirc/skip-duplicate-actions@v5.2.0
         with:
           cancel_others: true
       - uses: actions/checkout@v3

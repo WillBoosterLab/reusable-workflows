@@ -56,7 +56,7 @@ jobs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
+        uses: fkirc/skip-duplicate-actions@v5.2.0
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
@@ -78,7 +78,7 @@ jobs:
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
     steps:
-      - uses: fkirc/skip-duplicate-actions@master
+      - uses: fkirc/skip-duplicate-actions@v5.2.0
         with:
           cancel_others: true
       - uses: actions/checkout@v3
