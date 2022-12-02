@@ -20,5 +20,5 @@
     "prettier": "2.8.0",
     "sort-package-json": "2.1.0"
   },
-  "packageManager": "yarn@4.0.0-rc.31"
+  "packageManager": "yarn@4.0.0-rc.32"
 }
