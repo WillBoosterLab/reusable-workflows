@@ -40,12 +40,12 @@ jobs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - run: echo "Disable fkirc/skip-duplicate-actions temporally due to 502 error"
-#      - id: skip_check
-#        uses: fkirc/skip-duplicate-actions@master
-#        with:
-#          cancel_others: false
-#          skip_after_successful_duplicate: true
-#          paths_ignore: '["**/*.md", "**/docs/**"]'
+  #      - id: skip_check
+  #        uses: fkirc/skip-duplicate-actions@master
+  #        with:
+  #          cancel_others: false
+  #          skip_after_successful_duplicate: true
+  #          paths_ignore: '["**/*.md", "**/docs/**"]'
   detect-node-version-matrix:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
@@ -84,9 +84,9 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-#      - uses: fkirc/skip-duplicate-actions@v5.2.0
-#        with:
-#          cancel_others: true
+      #      - uses: fkirc/skip-duplicate-actions@v5.2.0
+      #        with:
+      #          cancel_others: true
       - uses: actions/checkout@v3
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
@@ -154,7 +154,15 @@ jobs:
       - run: if [[ "$(cat package.json)" == *'"test/ci-setup":'* ]]; then yarn run test/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"typecheck":'* ]]; then yarn typecheck; fi
       - run: if [[ "$(cat package.json)" == *'"lint":'* ]]; then yarn lint; fi
-      - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
+      - run: |
+          if [[ "$(cat package.json)" == *'"build":'* ]]; then
+            GIT_STATUS=$(git status)
+            yarn build
+            if [[ "$GIT_STATUS" != "$(git status)" ]]; then
+              echo "'yarn build' MUST NOT generate any changes."
+              exit 1
+            fi
+          fi
       - run: |
           if [[ "$(cat package.json)" == *'"test/ci":'* ]]; then
             yarn run test/ci
