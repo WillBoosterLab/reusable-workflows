@@ -95,7 +95,7 @@ jobs:
       - name: Check gcloud is required
         id: check-gcloud
         run: |
-          if [[ $HAS_GCP_SA_KEY_JSON == "true"  ]]; then
+          if [[ $HAS_GCP_SA_KEY_JSON == "true" ]]; then
             if [[ "$(cat package.json)" == *gcloud* || "$(cat packages/*/package.json)" == *gcloud* ]]; then
               echo "require-gcloud=1" >> $GITHUB_OUTPUT
             fi
