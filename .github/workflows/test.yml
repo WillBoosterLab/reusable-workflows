@@ -79,6 +79,7 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     env:
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      IS_RENOVATE: ${{ github.event.head_commit.author.username == 'renovate-bot' || github.event.head_commit.author.username == 'renovate[bot]' }}
     strategy:
       matrix:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
@@ -158,7 +159,7 @@ jobs:
           if [[ "$(cat package.json)" == *'"build":'* ]]; then
             GIT_STATUS=$(git status)
             yarn build
-            if [[ "$GIT_STATUS" != "$(git status)" ]]; then
+            if [[ "$GIT_STATUS" != "$(git status)" && "$IS_RENOVATE" == "false" ]]; then
               echo "'yarn build' MUST NOT generate any changes."
               exit 1
             fi
