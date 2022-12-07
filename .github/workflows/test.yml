@@ -158,6 +158,7 @@ jobs:
       - run: |
           if [[ "$(cat package.json)" == *'"build":'* ]]; then
             GIT_STATUS=$(git status)
+            git status
             yarn build
             if [[ "$GIT_STATUS" != "$(git status)" && "$IS_RENOVATE" == "false" ]]; then
               echo "'yarn build' MUST NOT generate any changes."
