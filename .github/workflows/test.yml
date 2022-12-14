@@ -196,4 +196,4 @@ jobs:
         with:
           name: test-artifact
           path: ${{ inputs.artifact_path }}
-      - run: docker system prune -a -f --filter "until=24h"
+      - run: docker system prune -a -f --filter "until=24h" || true
