@@ -231,7 +231,7 @@ jobs:
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      - run: docker system prune -a -f --filter "until=24h"
+      - run: docker system prune -a -f --filter "until=24h" || true
 
       - if: ${{ always() }}
         name: Delete credential files
