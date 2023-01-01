@@ -9,8 +9,8 @@ on:
     secrets:
       GH_PROJECT_URL:
         required: true
-      GH_BOT_PAT:
-        required: true
+      GH_TOKEN:
+        required: false
 
 jobs:
   add-to-project:
@@ -20,5 +20,5 @@ jobs:
       - uses: actions/add-to-project@v0.4.0
         with:
           project-url: ${{ secrets.GH_PROJECT_URL }}
-          github-token: ${{ secrets.GH_BOT_PAT }}
+          github-token: ${{ secrets.GH_TOKEN }}
           labeled: project
