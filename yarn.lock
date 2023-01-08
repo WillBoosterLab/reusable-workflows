@@ -173,9 +173,9 @@ __metadata:
   linkType: hard
 
 "commander@npm:^9.4.1":
-  version: 9.4.1
-  resolution: "commander@npm:9.4.1"
-  checksum: 7d4c1f3bd4ad451f43fce51b9c73dc2d61fca00a9249196aa2d3d66fc46f2460c917c73ea9221c278fb8d35f496384f5125806e69108581a8e8bc673752c94e6
+  version: 9.5.0
+  resolution: "commander@npm:9.5.0"
+  checksum: 1d09146ccb60400550629bcded4b72eeb100728207ecb2538dd827b19571dc16d3b0ee5da762d9bdbbe680ed5cca6658cac5bfce262b1b73eabe5ef8c15cdd9d
   languageName: node
   linkType: hard
 
@@ -277,11 +277,11 @@ __metadata:
   linkType: hard
 
 "fastq@npm:^1.6.0":
-  version: 1.14.0
-  resolution: "fastq@npm:1.14.0"
+  version: 1.15.0
+  resolution: "fastq@npm:1.15.0"
   dependencies:
     reusify: "npm:^1.0.4"
-  checksum: be0073e4efd01fd3c68c93cb9c6fc03f650848bfdc5868bf536d3c9c63bb39f36d526f460ecd814dc562e04ddd2d4a20e7bf881d292aa5ff5d533825d2c87213
+  checksum: 9c256d4b1c55c2a494ef198632ad19b801f98fb05b804c761c8c733da58b8f63888fdfe5e4c8ec7144f369135b71f23da1457e71b3aebaa943d2d5337bb86262
   languageName: node
   linkType: hard
 
