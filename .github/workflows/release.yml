@@ -45,34 +45,17 @@ jobs:
         id: check-ver
         run: |
           if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
-            echo "exist-version-files=1" >> $GITHUB_OUTPUT
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
           fi
-      - if: ${{ steps.check-ver.outputs.exist-version-files }}
-        uses: willbooster/asdf-actions/install@main
-      - if: ${{ !steps.check-ver.outputs.exist-version-files }}
+          if [[ -f .node-version || "$(cat .tool-versions)" == *'nodejs'* ]]; then
+            echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version || 18 }}
-      - name: Install Node.js with asdf if it doesn't exist
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          command: |
-            if [[ ! $(node --version) ]]; then
-              asdf plugin add nodejs || true
-              asdf local nodejs system
-              node --version
-            fi
-            if [[ ! $(yarn --version) ]]; then
-              asdf plugin add yarn || true
-              asdf local yarn system
-              if [[ ! $(yarn --version) ]]; then
-                YARN_VERSION=$(npm show yarn version)
-                asdf install yarn $(YARN_VERSION)
-                asdf local yarn $(YARN_VERSION)
-              fi
-            fi
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: willbooster/asdf-actions/install@main
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
@@ -80,7 +63,8 @@ jobs:
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
           echo "yarn: $(yarn -v)"
-          if [[ "$(yarn -v)" == "1."* ]]; then
+          YARN=$(yarn -v); echo "yarn: $YARN"
+          if [[ "$YARN" == "1."* ]]; then
             echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
           fi
 
