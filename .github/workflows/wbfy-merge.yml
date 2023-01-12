@@ -54,14 +54,15 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        # Unset core.hooksPath to disable husky
-        run: |
-          git config --global user.email "bot@willbooster.com"
-          git config --global user.name "WillBooster Inc."
-          git config --unset core.hooksPath
-          git merge origin/wbfy --squash
-        env:
-          HUSKY: 0
+        run: git status
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        run: git config --global user.email "bot@willbooster.com"
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        run: git config --global user.name "WillBooster Inc."
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        run: git config --unset core.hooksPath
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        run: git merge origin/wbfy --squash
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
         run: |
