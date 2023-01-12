@@ -54,20 +54,16 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        run: git status
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        run: git config --global user.email "bot@willbooster.com"
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        run: git config --global user.name "WillBooster Inc."
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        run: git config --unset core.hooksPath
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        run: git merge origin/wbfy --squash
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
         run: |
+          git config --global user.email "bot@willbooster.com"
+          git config --global user.name "WillBooster Inc."
+          # Since wb-oracle-1 cause an error (exit code: 5)
+          git config --unset core.hooksPath || true
+          git merge origin/wbfy --squash
           if git commit -m "chore: willboosterify this repo"; then
             git push origin ${{ github.event.repository.default_branch }}
+            git push origin :wbfy
           fi
         env:
           HUSKY: 0
