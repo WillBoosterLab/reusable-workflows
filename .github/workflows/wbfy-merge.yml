@@ -60,9 +60,13 @@ jobs:
           git config --global user.name "WillBooster Inc."
           git config --unset core.hooksPath
           git merge origin/wbfy --squash
+        env:
+          HUSKY: 0
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        # Unset core.hooksPath to disable husky
+        run: |
           if git commit -m "chore: willboosterify this repo"; then
             git push origin ${{ github.event.repository.default_branch }}
-            git push origin :wbfy
           fi
         env:
           HUSKY: 0
