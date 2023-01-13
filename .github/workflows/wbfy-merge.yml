@@ -75,4 +75,4 @@ jobs:
       - name: Clean up
         if: always()
         run: |
-          gh auth logout
+          gh auth logout -h github.com
