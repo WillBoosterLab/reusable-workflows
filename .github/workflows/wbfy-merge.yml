@@ -20,6 +20,9 @@ jobs:
     # github.event.repository.private is always true if job is scheduled
     runs-on: ${{ (inputs.github_hosted_runner && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
+      - name: Setup GitHub CLI
+        run: |
+          echo ${{ secrets.GH_TOKEN }} | gh auth login --with-token
       - name: Decide action
         id: decide-action
         run: |
@@ -68,3 +71,8 @@ jobs:
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
           gh pr create --head wbfy --base main --title "chore: willboosterify this repo" --body ""
+
+      - name: Clean up
+        if: always()
+        run: |
+          gh auth logout
