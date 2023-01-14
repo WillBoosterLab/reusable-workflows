@@ -29,7 +29,7 @@ on:
       DOT_ENV:
         required: false
       GH_TOKEN:
-        required: false
+        required: true
       NPM_TOKEN:
         required: false
 jobs:
@@ -89,6 +89,9 @@ jobs:
       #        with:
       #          cancel_others: true
       - uses: actions/checkout@v3
+        # To trigger other workflows when running 'git push'
+        with:
+          token: ${{ secrets.GH_TOKEN }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
@@ -144,16 +147,22 @@ jobs:
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"test/ci-setup":'* ]]; then yarn run test/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"typecheck":'* ]]; then yarn typecheck; fi
-      - run: if [[ "$(cat package.json)" == *'"lint":'* ]]; then yarn lint; fi
       - run: |
+          GIT_STATUS=$(git status)
+          if [[ "$(cat package.json)" == *'"lint-fix":'* ]]; then
+            yarn lint-fix
+          elif [[ "$(cat package.json)" == *'"lint":'* ]]; then
+            yarn lint
+          fi
           if [[ "$(cat package.json)" == *'"build":'* ]]; then
-            GIT_STATUS=$(git status)
-            git status
             yarn build
-            if [[ "$GIT_STATUS" != "$(git status)" && "$IS_RENOVATE" == "false" ]]; then
-              echo "'yarn build' MUST NOT generate any changes."
-              exit 1
-            fi
+          fi
+          if [[ "$GIT_STATUS" != "$(git status)" ]]; then
+            git config --global user.email "bot@willbooster.com"
+            git config --global user.name "WillBooster Inc."
+            git commit -m "chore: apply changes by lint-fix and build" -a
+            git push origin ${{ github.head_ref }}
+            exit 1
           fi
       - run: |
           if [[ "$(cat package.json)" == *'"test/ci":'* ]]; then
