@@ -27,7 +27,7 @@ jobs:
         id: decide-action
         run: |
           mkdir -p temp
-          gh run list -b wbfy -L 10 -w Test --json conclusion,event > temp/wbfy.json
+          gh run list -R ${{ github.repository }} -b wbfy -L 10 -w Test --json conclusion,event > temp/wbfy.json
 
           cat > temp/wbfy.js << EOF
           const results = require('./wbfy.json');
@@ -51,7 +51,13 @@ jobs:
         uses: actions/checkout@v3
         # To trigger other workflows when running 'git push'
         with:
-          fetch-depth: 0
+          ref: wbfy
+          token: ${{ secrets.GH_TOKEN }}
+      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
+        uses: actions/checkout@v3
+        # To trigger other workflows when running 'git push'
+        with:
+          ref: main
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
