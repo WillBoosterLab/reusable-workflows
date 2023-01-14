@@ -83,7 +83,8 @@ jobs:
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
-          gh pr create --head wbfy --base main --title "chore: willboosterify this repo" --body ""
+          # Since a duplicated PR is not allowed
+          gh pr create --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
 
       - name: Clean up
         if: always()
