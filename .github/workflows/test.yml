@@ -164,6 +164,7 @@ jobs:
               git commit -m "chore: apply changes by lint-fix and build" -a
               git push origin ${{ github.head_ref }}
             fi
+            echo "Found changes during lint-fix and/or build"
             exit 1
           fi
       - run: |
