@@ -158,10 +158,12 @@ jobs:
             yarn build
           fi
           if [[ "$GIT_STATUS" != "$(git status)" ]]; then
-            git config --global user.email "bot@willbooster.com"
-            git config --global user.name "WillBooster Inc."
-            git commit -m "chore: apply changes by lint-fix and build" -a
-            git push origin ${{ github.head_ref }}
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              git config --global user.email "bot@willbooster.com"
+              git config --global user.name "WillBooster Inc."
+              git commit -m "chore: apply changes by lint-fix and build" -a
+              git push origin ${{ github.head_ref }}
+            fi
             exit 1
           fi
       - run: |
