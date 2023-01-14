@@ -21,7 +21,9 @@ jobs:
     runs-on: ${{ (inputs.github_hosted_runner && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
     steps:
       - name: Setup GitHub CLI
-        run: echo ${{ secrets.GH_TOKEN }} | gh auth login --with-token
+        run: |
+          echo ${{ secrets.GH_TOKEN }} | gh auth login --with-token
+          gh auth setup-git
 
       - name: Decide action
         id: decide-action
