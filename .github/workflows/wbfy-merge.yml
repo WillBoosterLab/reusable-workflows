@@ -56,15 +56,10 @@ jobs:
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         uses: actions/checkout@v3
-        # To trigger other workflows when running 'git push'
         with:
-          ref: wbfy
-          token: ${{ secrets.GH_TOKEN }}
-      - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        uses: actions/checkout@v3
-        # To trigger other workflows when running 'git push'
-        with:
-          ref: main
+          # Need histories to merge wbfy
+          fetch-depth: 0
+          # To trigger other workflows when running 'git push'
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
