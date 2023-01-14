@@ -27,29 +27,30 @@ jobs:
         id: decide-action
         run: |
           if [[ -z $(git ls-remote https://github.com/${{ github.repository }} --heads wbfy) ]]; then
-            echo 'There is no wbfy branch.'
-          else
-            mkdir -p temp
-            gh run list -R ${{ github.repository }} -b wbfy -L 10 -w Test --json conclusion,event > temp/wbfy.json
-
-            cat > temp/wbfy.js << EOF
-            const results = require('./wbfy.json');
-            for (const result of results ?? []) {
-              const { event, conclusion } = result;
-              if (event !== 'push') continue;
-
-              if (conclusion === 'success') {
-                console.log('merge');
-              } else if (conclusion === 'failure') {
-                console.log('pr');
-              }
-              break;
-            }
-            EOF
-
-            echo "action=$(node temp/wbfy.js)" >> $GITHUB_OUTPUT
-            rm -Rf temp
+            echo "There is no wbfy branch."
+            exit 0
           fi
+
+          mkdir -p temp
+          gh run list -R ${{ github.repository }} -b wbfy -L 10 -w Test --json conclusion,event > temp/wbfy.json
+
+          cat > temp/wbfy.js << EOF
+          const results = require('./wbfy.json');
+          for (const result of results ?? []) {
+            const { event, conclusion } = result;
+            if (event !== 'push') continue;
+
+            if (conclusion === 'success') {
+              console.log('merge');
+            } else if (conclusion === 'failure') {
+              console.log('pr');
+            }
+            break;
+          }
+          EOF
+
+          echo "action=$(node temp/wbfy.js)" >> $GITHUB_OUTPUT
+          rm -Rf temp
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         uses: actions/checkout@v3
