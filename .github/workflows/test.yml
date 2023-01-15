@@ -157,17 +157,18 @@ jobs:
           if [[ "$(cat package.json)" == *'"build":'* ]]; then
             yarn build
           fi
-          git status
-          git branch
-          git branch -r
           if [[ "$GIT_STATUS" != "$(git status)" ]]; then
+            echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              git stash
+              git fetch origin ${{ github.head_ref }}
+              git switch ${{ github.head_ref }}
+              git stash pop
               git config --global user.email "bot@willbooster.com"
               git config --global user.name "WillBooster Inc."
               git commit -m "chore: apply changes by lint-fix and build" -a
               git push origin ${{ github.head_ref }}
             fi
-            echo "Found changes during lint-fix and/or build"
             exit 1
           fi
       - run: |
