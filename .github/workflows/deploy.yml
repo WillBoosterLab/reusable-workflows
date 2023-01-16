@@ -68,8 +68,8 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "macOS", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "macOS", "ARM64"]')) || fromJSON('["self-hosted", "large", "macOS"]') }}
     env:
       # constants
-      GCLOUD_VERSION: 406.0.0
-      PYTHON_VERSION: 3.9.15
+      GCLOUD_VERSION: 413.0.0
+      PYTHON_VERSION: 3.9.16
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
