@@ -45,6 +45,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - run: |
+          if [[ "$(cat package.json)" == *'"build":'* ]]; then
+            yarn build
+          fi
+      - run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
           git checkout -B wbfy
