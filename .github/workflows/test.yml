@@ -128,10 +128,6 @@ jobs:
             poetry config virtualenvs.prefer-active-python true
           fi
 
-          # cat << OBJECT
-          # ${{ toJson(github) }}
-          # OBJECT
-
       - if: ${{ steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v3
         with:
