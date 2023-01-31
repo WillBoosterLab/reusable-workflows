@@ -115,7 +115,6 @@ jobs:
         run: |
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          echo "yarn: $(yarn -v)"
           YARN=$(yarn -v); echo "yarn: $YARN"
           if [[ "$YARN" == "1."* ]]; then
             echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
