@@ -36,8 +36,9 @@ jobs:
         # https://stackoverflow.com/a/677212
         run: |
           echo "node: $(node -v)"
-          echo "yarn: $(yarn -v)"
-          if [[ "$(yarn -v)" == "1."* ]]; then
+          echo "npm: $(npm -v)"
+          YARN=$(yarn -v); echo "yarn: $YARN"
+          if [[ "$YARN" == "1."* ]]; then
             echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
           fi
 
