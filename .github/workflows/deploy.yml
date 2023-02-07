@@ -78,6 +78,8 @@ jobs:
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
     steps:
+      - name: Launch Docker to deal with issues on MacOS
+        run: echo $(open /Applications/Docker.app)
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
