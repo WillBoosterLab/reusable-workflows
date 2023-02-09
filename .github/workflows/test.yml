@@ -151,7 +151,9 @@ jobs:
           elif [[ "$(cat package.json)" == *'"lint":'* ]]; then
             yarn lint
           fi
-          if [[ "$(cat package.json)" == *'"build":'* ]]; then
+          if [[ "$(cat package.json)" == *'"build/ci":'* ]]; then
+            yarn build/ci
+          elif [[ "$(cat package.json)" == *'"build":'* ]]; then
             yarn build
           fi
           if [[ "$GIT_STATUS" != "$(git status)" ]]; then
