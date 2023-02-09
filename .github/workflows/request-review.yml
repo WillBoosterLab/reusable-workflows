@@ -14,6 +14,8 @@ jobs:
   request-review:
     if: ${{ github.event.label.name == 'review requested' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    env:
+      FORCE_COLOR: 1
     steps:
       - run: |
           curl -H "Content-Type: application/json" \
