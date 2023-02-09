@@ -52,6 +52,7 @@ jobs:
     env:
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
+      WB_ENV: ${{ inputs.environment }}
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
