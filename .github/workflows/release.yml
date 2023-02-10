@@ -32,7 +32,7 @@ on:
 jobs:
   release:
     if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "ARM64"]')) || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "medium", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "medium", "ARM64"]')) || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 1
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}

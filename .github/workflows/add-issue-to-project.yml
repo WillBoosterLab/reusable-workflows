@@ -15,7 +15,7 @@ on:
 jobs:
   add-to-project:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 1
     steps:

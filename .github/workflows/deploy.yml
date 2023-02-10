@@ -3,6 +3,10 @@ name: Deploy app
 on:
   workflow_call:
     inputs:
+      ci_size:
+        default: medium
+        required: false
+        type: string
       cpu_arch:
         required: false
         type: string
@@ -51,7 +55,7 @@ on:
 jobs:
   pre:
     if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "macOS", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "macOS", "ARM64"]')) || fromJSON('["self-hosted", "large", "macOS"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "medium", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "medium", "ARM64"]')) || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -64,7 +68,7 @@ jobs:
   deploy:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "large", "macOS", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "large", "macOS", "ARM64"]')) || fromJSON('["self-hosted", "large", "macOS"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", inputs.ci_size, "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", inputs.ci_size, "ARM64"]')) || fromJSON('["self-hosted", inputs.ci_size]') }}
     env:
       FORCE_COLOR: 1
       # constants

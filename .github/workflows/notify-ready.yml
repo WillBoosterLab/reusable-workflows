@@ -13,7 +13,7 @@ on:
 jobs:
   notify-ready:
     if: ${{ (github.event.label.name == 'ready' || startsWith(github.event.label.name, 'ready :')) && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "large"]') }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 1
     steps:
