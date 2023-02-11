@@ -2,9 +2,6 @@ name: Merge wbfy
 on:
   workflow_call:
     inputs:
-      cpu_arch:
-        required: false
-        type: string
       github_hosted_runner:
         required: false
         type: boolean
@@ -18,7 +15,7 @@ jobs:
   wbfy-merge:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     # github.event.repository.private is always true if job is scheduled
-    runs-on: ${{ (inputs.github_hosted_runner && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "medium", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "medium", "ARM64"]')) || fromJSON('["self-hosted", "medium"]') }}
+    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 1
     steps:

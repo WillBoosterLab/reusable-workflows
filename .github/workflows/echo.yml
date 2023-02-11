@@ -15,7 +15,7 @@ on:
 
 jobs:
   echo:
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || (inputs.cpu_arch == 'X64' && fromJSON('["self-hosted", "medium", "X64"]')) || (inputs.cpu_arch == 'ARM64' && fromJSON('["self-hosted", "medium", "ARM64"]')) || fromJSON('["self-hosted", "medium"]') }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch && fromJSON(format('["self-hosted", "medium", "{0}"]', inputs.cpu_arch))) || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 1
     outputs:
