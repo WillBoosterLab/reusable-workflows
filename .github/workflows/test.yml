@@ -51,7 +51,7 @@ jobs:
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
     env:
-      FORCE_COLOR: 1
+      FORCE_COLOR: 3
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
       WB_ENV: ${{ inputs.environment }}

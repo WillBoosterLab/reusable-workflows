@@ -20,7 +20,7 @@ jobs:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
-      FORCE_COLOR: 1
+      FORCE_COLOR: 3
     steps:
       # Because one-way-git-sync requires full history
       - uses: actions/checkout@v3

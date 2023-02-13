@@ -17,7 +17,7 @@ jobs:
     # github.event.repository.private is always true if job is scheduled
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
-      FORCE_COLOR: 1
+      FORCE_COLOR: 3
     steps:
       - name: Setup GitHub CLI
         run: |

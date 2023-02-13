@@ -20,7 +20,7 @@ jobs:
   echo:
     runs-on: self-hosted
     env:
-      FORCE_COLOR: 1
+      FORCE_COLOR: 3
     outputs:
       text: ${{ steps.echo.outputs.text }}
     steps:

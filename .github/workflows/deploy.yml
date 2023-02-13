@@ -70,7 +70,7 @@ jobs:
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_size, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_size)) }}
     env:
-      FORCE_COLOR: 1
+      FORCE_COLOR: 3
       # constants
       GCLOUD_VERSION: 413.0.0
       PYTHON_VERSION: 3.9.16
