@@ -51,7 +51,6 @@ jobs:
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
     env:
-      FORCE_COLOR: 3
       # arguments
       ENVIRONMENT: ${{ inputs.environment }}
       WB_ENV: ${{ inputs.environment }}
@@ -80,6 +79,7 @@ jobs:
     needs: detect-node-version-matrix
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_size)) }}
     env:
+      FORCE_COLOR: 3
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     strategy:
       matrix:
