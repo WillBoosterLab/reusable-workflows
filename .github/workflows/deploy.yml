@@ -91,9 +91,7 @@ jobs:
     steps:
       - name: Launch Docker to deal with issues on MacOS
         run: echo $(open /Applications/Docker.app)
-      - uses: fkirc/skip-duplicate-actions@master
-        with:
-          cancel_others: true
+      # Don't cancel running jobs in deployment
       - uses: actions/checkout@v3
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
