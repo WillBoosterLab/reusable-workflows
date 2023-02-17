@@ -181,7 +181,7 @@ jobs:
           timeout_minutes: 10
           max_attempts: 3
           command: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
-      - if: ${{ env.HAS_GCP_SA_KEY_JSON == 'true' }}
+      - if: ${{ steps.check-gcloud.outputs.require-gcloud && env.HAS_GCP_SA_KEY_JSON == 'true' }}
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
