@@ -302,9 +302,9 @@ __metadata:
   linkType: hard
 
 "git-hooks-list@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "git-hooks-list@npm:3.0.0"
-  checksum: 6ffb49c1b22b27cf18debcdb5bb5692a518f03c7801c1e181fb2c1611fcb02b2adda9b3c314b10dc8f6bca3bd53628cdc8199130af30c877a2366649f6e819c3
+  version: 3.1.0
+  resolution: "git-hooks-list@npm:3.1.0"
+  checksum: 999c795aea2eb8a70cd539573d11b8288d69156269437626fbf5482c3bb3646d33365b3df1c20b2c8084a439f5be5ccc58fbbd6097a8f26789700cc2b8ed232f
   languageName: node
   linkType: hard
 
