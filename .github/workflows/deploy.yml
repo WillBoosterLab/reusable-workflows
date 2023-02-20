@@ -238,7 +238,7 @@ jobs:
         name: Clean up docker
         run: |
           echo $(docker rm -f $(docker ps -q) 2> /dev/null)
-          docker system prune -a -f --filter "until=24h" || true
+          docker system prune -a -f --filter "until=2h" || true
       - if: ${{ always() }}
         name: Delete credential files
         run: rm -f $GOOGLE_APPLICATION_CREDENTIALS ${{ inputs.dot_env_path }}
