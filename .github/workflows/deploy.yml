@@ -58,21 +58,8 @@ on:
         required: false
 
 jobs:
-  pre:
-    if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
-    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch && fromJSON(format('["self-hosted", "medium", "{0}"]', inputs.cpu_arch))) || fromJSON('["self-hosted", "medium"]') }}
-    outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
-    steps:
-      - id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
-        with:
-          cancel_others: false
-          skip_after_successful_duplicate: true
-          paths_ignore: '["*.md"]' # Ignore only markdown files on root
   deploy:
-    needs: pre
-    if: ${{ needs.pre.outputs.should_skip != 'true' }}
+    if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_size, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_size)) }}
     env:
       FORCE_COLOR: 3
@@ -89,9 +76,6 @@ jobs:
       ENVIRONMENT: ${{ inputs.environment }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - name: Launch Docker to deal with issues on MacOS
-        run: echo $(open /Applications/Docker.app)
-      # Don't cancel running jobs in deployment
       - uses: actions/checkout@v3
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
@@ -237,8 +221,9 @@ jobs:
       - if: ${{ always() }}
         name: Clean up docker
         run: |
+          echo $(open /Applications/Docker.app)
           echo $(docker rm -f $(docker ps -q) 2> /dev/null)
-          docker system prune -a -f --filter "until=2h" || true
+          echo $(docker system prune -a -f --filter "until=2h")
       - if: ${{ always() }}
         name: Delete credential files
         run: rm -f $GOOGLE_APPLICATION_CREDENTIALS ${{ inputs.dot_env_path }}

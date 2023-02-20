@@ -45,7 +45,7 @@ jobs:
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
-          paths_ignore: '["**/*.md", "**/docs/**"]'
+          paths_ignore: '["**.md", "**/docs/**"]'
   detect-node-version-matrix:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
@@ -72,7 +72,7 @@ jobs:
           NODE_VERSIONS=""
           if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
-            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
+            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
@@ -86,8 +86,6 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-      - name: Launch Docker to deal with issues on MacOS
-        run: echo $(open /Applications/Docker.app)
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
@@ -210,5 +208,6 @@ jobs:
       - if: ${{ always() }}
         name: Clean up docker
         run: |
+          echo $(open /Applications/Docker.app)
           echo $(docker rm -f $(docker ps -q) 2> /dev/null)
-          docker system prune -a -f --filter "until=2h" || true
+          echo $(docker system prune -a -f --filter "until=2h")
