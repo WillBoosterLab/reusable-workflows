@@ -219,11 +219,13 @@ jobs:
                ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - if: ${{ always() }}
-        name: Clean up docker
-        run: |
-          echo $(open /Applications/Docker.app)
-          echo $(docker rm -f $(docker ps -q) 2> /dev/null)
-          echo $(docker system prune -a -f --filter "until=2h")
-      - if: ${{ always() }}
         name: Delete credential files
         run: rm -f $GOOGLE_APPLICATION_CREDENTIALS ${{ inputs.dot_env_path }}
+      - if: ${{ always() }}
+        name: Clean up docker
+        run: |
+          true $(docker rm -f $(docker ps -q) 2> /dev/null)
+          true $(docker system prune -a -f --filter "until=2h")
+          if [[ ! $(docker ps) ]]; then
+            (sleep 5; sudo reboot) &
+          fi

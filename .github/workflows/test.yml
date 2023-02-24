@@ -208,6 +208,8 @@ jobs:
       - if: ${{ always() }}
         name: Clean up docker
         run: |
-          echo $(open /Applications/Docker.app)
-          echo $(docker rm -f $(docker ps -q) 2> /dev/null)
-          echo $(docker system prune -a -f --filter "until=2h")
+          true $(docker rm -f $(docker ps -q) 2> /dev/null)
+          true $(docker system prune -a -f --filter "until=2h")
+          if [[ ! $(docker ps) ]]; then
+            (sleep 5; sudo reboot) &
+          fi
