@@ -206,8 +206,11 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - if: ${{ always() }}
-        name: Clean up docker
+        name: Clean up
         run: |
+          # pyc
+          sudo rm **/*.pyc &
+          # Docker
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
           true $(docker system prune -a -f --filter "until=2h")
           if [[ ! $(docker ps) ]]; then
