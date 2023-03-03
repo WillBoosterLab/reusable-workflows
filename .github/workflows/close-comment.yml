@@ -26,7 +26,10 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }} )
             commentBody=$(echo $comment | jq .body)
             commentBody=$(echo $commentBody | tr -d "\"")
-            newBody="close #$branchNumber\r\n$commentBody"
+            commentBody=$(echo $commentBody | sed -e 's/^null$//g')
+            closeComment="close #$branchNumber"
+            commentBody=$(echo $commentBody | sed -e "s/$closeComment//g")
+            newBody="$commentBody\r\n$closeComment"
             curl \
               -X PATCH \
               -H "Accept:application/vnd.github+json" \
