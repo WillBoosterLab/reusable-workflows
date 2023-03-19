@@ -254,8 +254,8 @@ __metadata:
   linkType: hard
 
 "execa@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "execa@npm:7.0.0"
+  version: 7.1.1
+  resolution: "execa@npm:7.1.1"
   dependencies:
     cross-spawn: "npm:^7.0.3"
     get-stream: "npm:^6.0.1"
@@ -266,7 +266,7 @@ __metadata:
     onetime: "npm:^6.0.0"
     signal-exit: "npm:^3.0.7"
     strip-final-newline: "npm:^3.0.0"
-  checksum: b10a3c635ebef4ab2b71aa009bd73cbdb1edee1f30d8126fb924191d0ff6a5691ede9277d06ab976a41e8fec8605b152fd9314654e60cc38e2d7509002ace28c
+  checksum: 36b171e01b83a88303917916618611b6d83bb9779fac0788d37bba32db92791c2da323605a6a1fa39dcc0c58f220d9f1ace4839481be913ae028a5f390b44a7c
   languageName: node
   linkType: hard
 
@@ -338,9 +338,9 @@ __metadata:
   linkType: hard
 
 "human-signals@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "human-signals@npm:4.3.0"
-  checksum: 5d5113c506664882da31e581801f2c3c3a967c90748c7b344ec30a4c1e4e2ee7cb6214963cf3d9d90f706acfe4f8adc964d565a1fee8885686f335aa7e9dcbb8
+  version: 4.3.1
+  resolution: "human-signals@npm:4.3.1"
+  checksum: 516afaf3bce1d9ddcc81cfb453c7e7684ae4767f7cff807287195d1f328eea3ccc8cfb63fd4b78de7e3850bcc4587701df767f36f6af353285fe20aa8433b697
   languageName: node
   linkType: hard
 
@@ -456,8 +456,8 @@ __metadata:
   linkType: hard
 
 "listr2@npm:^5.0.7":
-  version: 5.0.7
-  resolution: "listr2@npm:5.0.7"
+  version: 5.0.8
+  resolution: "listr2@npm:5.0.8"
   dependencies:
     cli-truncate: "npm:^2.1.0"
     colorette: "npm:^2.0.19"
@@ -472,7 +472,7 @@ __metadata:
   peerDependenciesMeta:
     enquirer:
       optional: true
-  checksum: 3a2c38e70b5f1b80e6d3f27ad0d52c1c519eece2d6dd777bc01332a2ae34362d7deb50fb14bc14b57ab22ca2dbb3da1f3b76d85325108ab8ff385cfbe43da4ba
+  checksum: 312f812e597c03e7c01c9765e684341f07836ae98fcf2e767ae45f73f667f42fb47ed5a3854c82af64a7b30016b276cb6c3ebc4eb115a58ba6b6c9212a1b7950
   languageName: node
   linkType: hard
 
