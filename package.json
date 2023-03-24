@@ -17,7 +17,7 @@
     "husky": "8.0.3",
     "lint-staged": "13.2.0",
     "pinst": "3.0.0",
-    "prettier": "2.8.4",
+    "prettier": "2.8.7",
     "sort-package-json": "2.4.1"
   },
   "packageManager": "yarn@4.0.0-rc.40"
