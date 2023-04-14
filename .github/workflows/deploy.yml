@@ -145,13 +145,14 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PATH=$HOME/.fly/bin:$PATH" >> $GITHUB_ENV
-          echo "VERSION=$(git describe --always --tags)" >> $GITHUB_ENV
-          echo "WB_VERSION=$(git describe --always --tags)" >> $GITHUB_ENV
+          WB_VERSION=$(git describe --always --tags)
+          echo "WB_VERSION=$WB_VERSION" >> $GITHUB_ENV
+          echo "VERSION=$WB_VERSION" >> $GITHUB_ENV
       - name: Verify environment variables
         run: |
           echo ${PATH}
-          echo ${VERSION}
           echo ${WB_VERSION}
+          echo ${VERSION}
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v3

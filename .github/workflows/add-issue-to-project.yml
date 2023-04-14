@@ -19,7 +19,7 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      - uses: actions/add-to-project@v0.4.1
+      - uses: actions/add-to-project@v0.5.0
         with:
           project-url: ${{ secrets.GH_PROJECT_URL }}
           github-token: ${{ secrets.GH_TOKEN }}
