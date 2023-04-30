@@ -693,11 +693,11 @@ __metadata:
   linkType: hard
 
 "rxjs@npm:^7.8.0":
-  version: 7.8.0
-  resolution: "rxjs@npm:7.8.0"
+  version: 7.8.1
+  resolution: "rxjs@npm:7.8.1"
   dependencies:
     tslib: "npm:^2.1.0"
-  checksum: 56dfebbd1f868935809688075a33d940954a66ddec9ea3b92cc7031e50fc4040e9962416d5ca009b9da9e1edda6ff4f1fc3155786e7e521ec6eb3100e30f0317
+  checksum: d7daafba4296c4360b19bdff02d24e2f8acc7731605b0d99a0c920373d0af995bcb6b3c58c211e02db50aabddd9e854250a195f87ed193b56e79f245494774f5
   languageName: node
   linkType: hard
 
