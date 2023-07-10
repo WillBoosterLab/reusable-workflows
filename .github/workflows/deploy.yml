@@ -178,7 +178,7 @@ jobs:
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
-      - run: yarn install
+      - run: yarn install || true # To ignore postinstall errors
 
       - if: ${{ env.HAS_GCP_SA_KEY_JSON_FOR_FIREBASE == 'true' }}
         name: Create credential file for Firebase

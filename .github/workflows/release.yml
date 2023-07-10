@@ -75,7 +75,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - run: yarn install
+      - run: yarn install || true # To ignore postinstall errors
       - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
       - run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then

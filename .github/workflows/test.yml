@@ -143,7 +143,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - run: yarn install
+      - run: yarn install || true # To ignore postinstall errors
       - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"test/ci-setup":'* ]]; then yarn run test/ci-setup; fi
       - run: if [[ "$(cat package.json)" == *'"typecheck":'* ]]; then yarn typecheck; fi
