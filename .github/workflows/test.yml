@@ -47,19 +47,16 @@ jobs:
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       # We need Node.js only if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]]
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        id: check-node
+      - id: check-node
         run: |
           if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]] && [[ ! $(node --version) ]]; then
             echo "require-install=1" >> $GITHUB_OUTPUT
           fi
-      - if: ${{ steps.check-node.outputs.require-install && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ steps.check-node.outputs.require-install }}
         uses: actions/setup-node@v3
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        id: detect-node-version-matrix
+      - id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
           NODE_VERSIONS=""
