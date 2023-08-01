@@ -64,8 +64,8 @@ jobs:
     env:
       FORCE_COLOR: 3
       # constants
-      GCLOUD_VERSION: 413.0.0
-      PYTHON_VERSION: 3.9.16
+      GCLOUD_VERSION: 437.0.1
+      PYTHON_VERSION: 3.9.17
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       # arguments
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
@@ -109,7 +109,7 @@ jobs:
         name: Install gcloud with asdf
         uses: nick-fields/retry@v2
         with:
-          timeout_minutes: 10
+          timeout_minutes: 15
           max_attempts: 3
           command: |
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
