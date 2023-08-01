@@ -205,7 +205,7 @@ jobs:
           name: test-artifact
           path: ${{ inputs.artifact_path }}
 
-      - if: ${{ always() }}
+      - if: ${{ always() && (github.event_name == 'push' || github.base_ref != 'main') }}
         name: Clean up
         run: |
           # pyc
