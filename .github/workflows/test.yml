@@ -37,8 +37,21 @@ on:
       NPM_TOKEN:
         required: false
 jobs:
-  detect-node-version-matrix:
+  pre:
     if: ${{ !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          cancel_others: false
+          skip_after_successful_duplicate: true
+          paths_ignore: '["**.md", "**/docs/**"]'
+  detect-node-version-matrix:
+    needs: pre
+    if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
     env:
       # arguments
@@ -77,16 +90,17 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        uses: actions/checkout@v3
+      - uses: fkirc/skip-duplicate-actions@master
+        with:
+          cancel_others: true
+      - uses: actions/checkout@v3
         # To trigger other workflows when running 'git push'
         with:
           token: ${{ secrets.GH_TOKEN }}
-      - if: ${{ env.HAS_DOT_ENV == 'true' && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        name: Check version files
+      - name: Check version files
         id: check-ver
         run: |
           if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
@@ -95,14 +109,13 @@ jobs:
           if [[ -f .node-version || "$(cat .tool-versions)" == *'nodejs'* ]]; then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
-      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version || 18 }}
-      - if: ${{ steps.check-ver.outputs.exist-any-version && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        name: Show environment information
+      - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
         run: |
@@ -120,7 +133,7 @@ jobs:
             poetry config virtualenvs.prefer-active-python true
           fi
 
-      - if: ${{ steps.env-info.outputs.yarn-dir && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v3
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
@@ -130,16 +143,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: yarn install || true # To ignore postinstall errors
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: if [[ "$(cat package.json)" == *'"test/ci-setup":'* ]]; then yarn run test/ci-setup; fi
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: if [[ "$(cat package.json)" == *'"typecheck":'* ]]; then yarn typecheck; fi
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        name: Lint & Build
+      - run: yarn install || true # To ignore postinstall errors
+      - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
+      - run: if [[ "$(cat package.json)" == *'"test/ci-setup":'* ]]; then yarn run test/ci-setup; fi
+      - run: if [[ "$(cat package.json)" == *'"typecheck":'* ]]; then yarn typecheck; fi
+      - name: Lint & Build
         run: |
           GIT_STATUS=$(git status)
           if [[ "$(cat package.json)" == *'"lint-fix":'* ]]; then
@@ -168,8 +176,7 @@ jobs:
             fi
             exit 1
           fi
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: |
+      - run: |
           if [[ "${{ env.HAS_TEST_COMMAND }}" == "true" ]]; then
             yarn run ${{ inputs.custom_test_command }}
           elif [[ "$(cat package.json)" == *'"test/ci":'* ]]; then
@@ -177,8 +184,7 @@ jobs:
           elif [[ "$(cat package.json)" == *'"test":'* ]]; then
             yarn test
           fi
-      - if: ${{ github.event_name == 'push' || github.base_ref != 'main' }}
-        run: |
+      - run: |
           if [[ "$(cat package.json)" == *'"lint-staged":'* ]]; then
             for file in $(ls package.json packages/*/package.json); do
               sed -i -e 's/"name":/"name" :/' $file
@@ -186,7 +192,7 @@ jobs:
             done
             yarn lint-staged --allow-empty
           fi
-      - if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'push' && github.ref_name != 'main' }}
+      - if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
         run: |
           if [[ "$(cat package.json)" == *'"semantic-release":'* && $(node --version) > "v18" ]]; then
             git switch -C $(jq -r ".branches[0]" .releaserc.json)
@@ -199,13 +205,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - if: ${{ inputs.artifact_path && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ inputs.artifact_path }}
         uses: actions/upload-artifact@v3
         with:
           name: test-artifact
           path: ${{ inputs.artifact_path }}
 
-      - if: ${{ always() && (github.event_name == 'push' || github.base_ref != 'main') }}
+      - if: ${{ always() }}
         name: Clean up
         run: |
           # pyc
