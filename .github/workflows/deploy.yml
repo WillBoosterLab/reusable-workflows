@@ -114,6 +114,9 @@ jobs:
           command: |
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
               asdf plugin add python || true
+              asdf local python $PYTHON_VERSION || true
+              # Deal with incomplete python installation
+              python --version || asdf uninstall python $PYTHON_VERSION
               asdf install python $PYTHON_VERSION
               asdf local python $PYTHON_VERSION
             fi
