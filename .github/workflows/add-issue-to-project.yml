@@ -6,6 +6,10 @@ on:
       target_organization:
         required: false
         type: string
+      label:
+        required: false
+        type: string
+        default: project
     secrets:
       GH_PROJECT_URL:
         required: true
@@ -23,4 +27,4 @@ jobs:
         with:
           project-url: ${{ secrets.GH_PROJECT_URL }}
           github-token: ${{ secrets.GH_TOKEN }}
-          labeled: project
+          labeled: {{ inputs.label }}
