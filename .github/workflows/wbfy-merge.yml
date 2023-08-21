@@ -35,7 +35,7 @@ jobs:
           mkdir -p temp
           gh run list -R ${{ github.repository }} -b wbfy -L 10 -w Test --json conclusion,event > temp/wbfy.json
 
-          cat > temp/wbfy.js << EOF
+          cat > temp/wbfy.cjs << EOF
           const results = require('./wbfy.json');
           for (const result of results ?? []) {
             const { event, conclusion } = result;
@@ -50,7 +50,7 @@ jobs:
           }
           EOF
 
-          echo "action=$(node temp/wbfy.js)" >> $GITHUB_OUTPUT
+          echo "action=$(node temp/wbfy.cjs)" >> $GITHUB_OUTPUT
           rm -Rf temp
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
