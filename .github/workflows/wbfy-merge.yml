@@ -54,7 +54,7 @@ jobs:
           rm -Rf temp
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           # Need histories to merge wbfy
           fetch-depth: 0

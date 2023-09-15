@@ -76,7 +76,7 @@ jobs:
       ENVIRONMENT: ${{ inputs.environment }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
       - if: ${{ inputs.file_path_1 }}

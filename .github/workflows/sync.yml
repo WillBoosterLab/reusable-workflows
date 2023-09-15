@@ -23,7 +23,7 @@ jobs:
       FORCE_COLOR: 3
     steps:
       # Because one-way-git-sync requires full history
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 

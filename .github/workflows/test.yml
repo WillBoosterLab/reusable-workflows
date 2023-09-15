@@ -60,7 +60,7 @@ jobs:
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # We need Node.js only if [[ "$(cat .tool-versions)" != *"node"* ]] && [[ ! -f .node-version ]]
       - id: check-node
         run: |
@@ -93,7 +93,7 @@ jobs:
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         # To trigger other workflows when running 'git push'
         with:
           token: ${{ secrets.GH_TOKEN }}

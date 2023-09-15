@@ -24,7 +24,7 @@ jobs:
     outputs:
       text: ${{ steps.echo.outputs.text }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: willbooster/asdf-actions/install@main
       - id: echo
         run: |
