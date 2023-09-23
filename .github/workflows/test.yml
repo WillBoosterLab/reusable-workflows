@@ -112,7 +112,7 @@ jobs:
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version || 18 }}
+          node-version: ${{ matrix.node-version || 20 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
       - name: Show environment information
@@ -194,7 +194,7 @@ jobs:
           fi
       - if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
         run: |
-          if [[ "$(cat package.json)" == *'"semantic-release":'* && $(node --version) > "v18" ]]; then
+          if [[ "$(cat package.json)" == *'"semantic-release":'* && $(node --version) > "v20" ]]; then
             git switch -C $(jq -r ".branches[0]" .releaserc.json)
             if [[ "$(cat package.json)" == *'"release-test":'* ]]; then
               yarn release-test
