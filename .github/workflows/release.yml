@@ -32,6 +32,7 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
+      # arguments
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:

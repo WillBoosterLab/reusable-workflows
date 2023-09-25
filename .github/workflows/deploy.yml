@@ -73,7 +73,6 @@ jobs:
       HAS_FLY_API_TOKEN: ${{ !!secrets.FLY_API_TOKEN }}
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
-      ENVIRONMENT: ${{ inputs.environment }}
       WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4

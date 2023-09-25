@@ -53,10 +53,6 @@ jobs:
     needs: pre
     if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON('["self-hosted", "medium"]') }}
-    env:
-      # arguments
-      ENVIRONMENT: ${{ inputs.environment }}
-      WB_ENV: ${{ inputs.environment }}
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
@@ -83,8 +79,10 @@ jobs:
     runs-on: ${{ ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.runs_on && fromJSON(inputs.runs_on)) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_size)) }}
     env:
       FORCE_COLOR: 3
+      # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_TEST_COMMAND: ${{ !!inputs.custom_test_command }}
+      WB_ENV: ${{ inputs.environment }}
     strategy:
       matrix:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
