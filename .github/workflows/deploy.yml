@@ -128,7 +128,7 @@ jobs:
         id: env-info
         # https://stackoverflow.com/a/677212
         run: |
-          echo "$WB_ENV"
+          echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
           YARN=$(yarn -v); echo "yarn: $YARN"
