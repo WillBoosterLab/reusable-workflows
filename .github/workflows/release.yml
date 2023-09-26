@@ -7,10 +7,16 @@ on:
         default: .env
         required: false
         type: string
+      environment:
+        required: false
+        type: string
       github_hosted_runner:
         required: false
         type: boolean
       ignore_renovate:
+        required: false
+        type: boolean
+      skip_build:
         required: false
         type: boolean
       target_organization:
@@ -35,6 +41,7 @@ jobs:
       # arguments
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -59,6 +66,7 @@ jobs:
         id: env-info
         # https://stackoverflow.com/a/677212
         run: |
+          echo "$WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
           YARN=$(yarn -v); echo "yarn: $YARN"
@@ -77,7 +85,8 @@ jobs:
             ${{ runner.os }}-yarn-v1-
 
       - run: yarn install || true # To ignore postinstall errors
-      - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
+      - if: ${{ !inputs.skip_build }}
+        run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
       - run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
             yarn release
