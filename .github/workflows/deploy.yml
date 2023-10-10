@@ -64,7 +64,7 @@ jobs:
     env:
       FORCE_COLOR: 3
       # constants
-      GCLOUD_VERSION: 440.0.0
+      GCLOUD_VERSION: 449.0.0
       PYTHON_VERSION: 3.9.17
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       # arguments
