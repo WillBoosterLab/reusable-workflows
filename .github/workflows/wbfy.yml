@@ -2,6 +2,13 @@ name: Willboosterify
 on:
   workflow_call:
     inputs:
+      dot_env_path:
+        default: .env
+        required: false
+        type: string
+      environment:
+        required: false
+        type: string
       github_hosted_runner:
         required: false
         type: boolean
@@ -9,6 +16,8 @@ on:
         required: false
         type: string
     secrets:
+      DOT_ENV:
+        required: false
       GH_TOKEN:
         required: true
 jobs:
@@ -18,12 +27,15 @@ jobs:
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
+      # arguments
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
         # To trigger other workflows when running 'git push'
         with:
           token: ${{ secrets.GH_TOKEN }}
-      - if: ${{ inputs.dot_env_path }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
@@ -44,10 +56,7 @@ jobs:
       - run: yarn dlx wbfy --version && yarn dlx wbfy .
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      - run: |
-          if [[ "$(cat package.json)" == *'"build":'* ]]; then
-            yarn build
-          fi
+      - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
       - run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
@@ -58,3 +67,6 @@ jobs:
           fi
         env:
           HUSKY: 0
+      - if: ${{ always() }}
+        name: Delete credential files
+        run: rm -f ${{ inputs.dot_env_path }}
