@@ -64,7 +64,7 @@ jobs:
             echo "require-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-install }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
       - id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
@@ -108,7 +108,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version || 20 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version }}

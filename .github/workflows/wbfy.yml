@@ -39,7 +39,7 @@ jobs:
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
       - name: Show environment information
