@@ -172,7 +172,7 @@ jobs:
         uses: nick-fields/retry@v2
         with:
           timeout_minutes: 10
-          max_attempts: 10
+          max_attempts: 5
           command: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
       - if: ${{ steps.check-gcloud.outputs.require-gcloud && env.HAS_GCP_SA_KEY_JSON == 'true' }}
         uses: google-github-actions/auth@v1
@@ -193,7 +193,7 @@ jobs:
         uses: nick-fields/retry@v2
         with:
           timeout_minutes: 60
-          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 5 || 1 }}
+          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
             # GCP_SA_KEY_JSON may be used in deploy/ci-setup
             if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
