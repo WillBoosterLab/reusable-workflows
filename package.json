@@ -15,9 +15,9 @@
     "@willbooster/prettier-config": "9.1.2",
     "@willbooster/renovate-config": "9.5.0",
     "husky": "8.0.3",
-    "lint-staged": "15.2.1",
+    "lint-staged": "15.2.2",
     "pinst": "3.0.0",
-    "prettier": "3.2.4",
+    "prettier": "3.2.5",
     "sort-package-json": "2.7.0"
   },
   "packageManager": "yarn@4.1.0"
