@@ -18,7 +18,7 @@
     "lint-staged": "15.2.2",
     "pinst": "3.0.0",
     "prettier": "3.2.5",
-    "sort-package-json": "2.7.0"
+    "sort-package-json": "2.8.0"
   },
   "packageManager": "yarn@4.1.0"
 }
