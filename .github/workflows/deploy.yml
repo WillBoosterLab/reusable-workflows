@@ -165,7 +165,7 @@ jobs:
           echo ${VERSION}
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
