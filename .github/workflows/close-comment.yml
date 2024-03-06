@@ -16,7 +16,7 @@ jobs:
     steps:
       - run: |
           mkdir -p temp
-          echo  "const { execSync } = require('child_process');" > temp/addCloseComment.js
+          echo "const { execSync } = require('child_process');" > temp/addCloseComment.js
           echo "const headRef = '${{github.head_ref}}';" >> temp/addCloseComment.js
           echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.js
           echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.js
@@ -26,14 +26,14 @@ jobs:
           const closeComment= \`close #\${issueNumber}\`;
           const closeCommentReg = new RegExp(closeComment);
           re=/^[0-9]+$/;
-          if(re.test(issueNumber)){
+          if (re.test(issueNumber)) {
               let newBody = "";
               const stdout = execSync(\`gh pr view \${url} --json body\`);
               let commentBody = JSON.parse(stdout)["body"];
-              if(!closeCommentReg.test(commentBody)){
+              if (!closeCommentReg.test(commentBody)) {
                   newBody=\`\${closeComment}\r\n\${commentBody}\`;
               }
-              if(closeCommentReg.test(newBody)){
+              if (closeCommentReg.test(newBody)) {
                   execSync(\`gh pr edit \${url} --body "\${newBody}"\`);
               }
           }
