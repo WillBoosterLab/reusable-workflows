@@ -86,7 +86,7 @@ jobs:
       - if: ${{ inputs.file_path_1 }}
         run: echo '${{ secrets.FILE_CONTENT_1 }}' > ${{ inputs.file_path_1 }}
       - if: ${{ inputs.file_path_2 }}
-        run: echo '${{ secrets.FILE_CONTENT_2 }}' > ${{ inputs.file_path_1 }}
+        run: echo '${{ secrets.FILE_CONTENT_2 }}' > ${{ inputs.file_path_2 }}
 
       - name: Check version files
         id: check-ver
