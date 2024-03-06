@@ -15,22 +15,30 @@ jobs:
       FORCE_COLOR: 3
     steps:
       - run: |
-          branchNumber=${{github.head_ref}}
-          branchNumber=($(echo $branchNumber | tr "_" "-"))
-          branchNumber=($(echo $branchNumber | tr "-" "\n"))
-          re='^[0-9]+$'
-          if [[ $branchNumber =~ $re ]]; then
-            comment=$(curl \
-              -H "Accept:application/vnd.github+json" \
-              -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }} )
-            commentBody=$(echo $comment | jq .body)
-            commentBody=$(echo $commentBody | tr -d "\"")
-            newBody="close #$branchNumber\r\n$commentBody"
-            curl \
-              -X PATCH \
-              -H "Accept:application/vnd.github+json" \
-              -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }} \
-              -d "{\"body\": \"${newBody}\"}"
-          fi
+          mkdir -p temp
+          echo "const { execSync } = require('child_process');" > temp/addCloseComment.js
+          echo "const headRef = '${{github.head_ref}}';" >> temp/addCloseComment.js
+          echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.js
+          echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.js
+          cat >> temp/addCloseComment.js << EOF
+          const url = \`https://github.com/\${repository}/pull/\${prNumber}\`
+          const [issueNumber] = headRef.split(/[-_]/);
+          const closeComment= \`close #\${issueNumber}\`;
+          const closeCommentReg = new RegExp(closeComment);
+          re=/^[0-9]+$/;
+          if (re.test(issueNumber)) {
+              let newBody = "";
+              const stdout = execSync(\`gh pr view \${url} --json body\`);
+              let commentBody = JSON.parse(stdout)["body"];
+              if (!closeCommentReg.test(commentBody)) {
+                  newBody=\`\${closeComment}\r\n\${commentBody}\`;
+              }
+              if (closeCommentReg.test(newBody)) {
+                  execSync(\`gh pr edit \${url} --body "\${newBody}"\`);
+              }
+          }
+          EOF
+          node temp/addCloseComment.js
+          rm -Rf temp
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
