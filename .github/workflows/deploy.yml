@@ -23,6 +23,9 @@ on:
       file_path_1:
         required: false
         type: string
+      file_path_2:
+        required: false
+        type: string
       github_hosted_runner:
         required: false
         type: boolean
@@ -47,6 +50,8 @@ on:
       DOT_ENV:
         required: false
       FILE_CONTENT_1:
+        required: false
+      FILE_CONTENT_2:
         required: false
       FLY_API_TOKEN:
         required: false
@@ -80,6 +85,8 @@ jobs:
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
       - if: ${{ inputs.file_path_1 }}
         run: echo '${{ secrets.FILE_CONTENT_1 }}' > ${{ inputs.file_path_1 }}
+      - if: ${{ inputs.file_path_2 }}
+        run: echo '${{ secrets.FILE_CONTENT_2 }}' > ${{ inputs.file_path_1 }}
 
       - name: Check version files
         id: check-ver
