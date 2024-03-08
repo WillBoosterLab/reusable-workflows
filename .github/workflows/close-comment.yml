@@ -16,11 +16,11 @@ jobs:
     steps:
       - run: |
           mkdir -p temp
-          echo "const { execSync } = require('child_process');" > temp/addCloseComment.js
-          echo "const headRef = '${{github.head_ref}}';" >> temp/addCloseComment.js
-          echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.js
-          echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.js
-          cat >> temp/addCloseComment.js << EOF
+          echo "import { execSync } from 'node:child_process';" > temp/addCloseComment.mjs
+          echo "const headRef = '${{github.head_ref}}';" >> temp/addCloseComment.mjs
+          echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.mjs
+          echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.mjs
+          cat >> temp/addCloseComment.mjs << EOF
           const url = \`https://github.com/\${repository}/pull/\${prNumber}\`
           const [issueNumber] = headRef.split(/[-_]/);
           const closeComment= \`close #\${issueNumber}\`;
@@ -38,7 +38,7 @@ jobs:
               }
           }
           EOF
-          node temp/addCloseComment.js
+          node temp/addCloseComment.mjs
           rm -Rf temp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
