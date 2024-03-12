@@ -17,27 +17,25 @@ jobs:
       - run: |
           mkdir -p temp
           echo "import { execSync } from 'node:child_process';" > temp/addCloseComment.mjs
-          echo "const headRef = '${{github.head_ref}}';" >> temp/addCloseComment.mjs
+          echo "const headRef = '${{ github.head_ref }}';" >> temp/addCloseComment.mjs
           echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.mjs
           echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.mjs
-          cat >> temp/addCloseComment.mjs << EOF
-          const url = \`https://github.com/\${repository}/pull/\${prNumber}\`
+          cat - >> temp/addCloseComment.mjs << 'END_OF_HEARDOC'
+          const url = `https://github.com/${repository}/pull/${prNumber}`;
           const [issueNumber] = headRef.split(/[-_]/);
-          const closeComment = \`close #\${issueNumber}\`;
-          const closeCommentRegex = new RegExp(closeComment);
           const issueNumberRegex = /^[0-9]+$/;
           if (issueNumberRegex.test(issueNumber)) {
-              let newBody = "";
-              const stdout = execSync(\`gh pr view \${url} --json body\`);
-              let commentBody = JSON.parse(stdout)["body"];
+              const stdout = execSync(`gh pr view ${url} --json body`, { encoding: 'utf8' });
+              const commentBody = JSON.parse(stdout)['body'];
+              const closeCommentRegex = new RegExp(`Close\\s+#${issueNumber}`, 'i');
               if (!closeCommentRegex.test(commentBody)) {
-                  newBody = \`\${closeComment}\r\n\${commentBody}\`;
-              }
-              if (closeCommentRegex.test(newBody)) {
-                  execSync(\`gh pr edit \${url} --body "\${newBody}"\`);
+                  const newBody = `Close #${issueNumber}\r\n${commentBody}`;
+                  execSync(`gh pr edit ${url} --body "${newBody}"`);
               }
           }
-          EOF
+          END_OF_HEARDOC
+          cat temp/addCloseComment.mjs
+      - run: |
           node temp/addCloseComment.mjs
           rm -Rf temp
         env:
