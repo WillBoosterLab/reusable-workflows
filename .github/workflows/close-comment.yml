@@ -16,7 +16,7 @@ jobs:
     steps:
       - run: |
           mkdir -p temp
-          echo "import { execSync } from 'node:child_process';" > temp/addCloseComment.mjs
+          echo "import { spawnSync } from 'node:child_process';" > temp/addCloseComment.mjs
           echo "const headRef = '${{ github.head_ref }}';" >> temp/addCloseComment.mjs
           echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.mjs
           echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.mjs
@@ -25,12 +25,12 @@ jobs:
           const [issueNumber] = headRef.split(/[-_]/);
           const issueNumberRegex = /^[0-9]+$/;
           if (issueNumberRegex.test(issueNumber)) {
-              const stdout = execSync(`gh pr view ${url} --json body`, { encoding: 'utf8' });
-              const commentBody = JSON.parse(stdout)['body'];
+              const ret = spawnSync('gh', ['pr', 'view', url, '--json', 'body'], { encoding: 'utf8' });
+              const commentBody = JSON.parse(ret.stdout)['body'];
               const closeCommentRegex = new RegExp(`Close\\s+#${issueNumber}`, 'i');
               if (!closeCommentRegex.test(commentBody)) {
                   const newBody = `Close #${issueNumber}\r\n${commentBody}`;
-                  execSync(`gh pr edit ${url} --body "${newBody}"`);
+                  spawnSync('gh', ['pr', 'edit', url, '--body', newBody]);
               }
           }
           END_OF_HEARDOC
