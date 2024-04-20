@@ -25,11 +25,11 @@ jobs:
           const [issueNumber] = headRef.split(/[-_]/);
           const issueNumberRegex = /^[0-9]+$/;
           if (issueNumberRegex.test(issueNumber)) {
-              const ret = spawnSync('gh', ['pr', 'view', url, '--json', 'body'], { encoding: 'utf8' });
-              const commentBody = JSON.parse(ret.stdout)['body'];
+              const { stdout } = spawnSync('gh', ['pr', 'view', url, '--json', 'body'], { encoding: 'utf8' });
+              const commentBody = JSON.parse(stdout)['body'];
               const closeCommentRegex = new RegExp(`Close\\s+#${issueNumber}`, 'i');
               if (!closeCommentRegex.test(commentBody)) {
-                  const newBody = `Close #${issueNumber}\r\n${commentBody}`;
+                  const newBody = `Close #${issueNumber}\r\n${commentBody.replace(/Close #<.*> *\n?/i, '')}`;
                   spawnSync('gh', ['pr', 'edit', url, '--body', newBody]);
               }
           }

@@ -27,21 +27,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
+          bun-version: latest
       - name: Show environment information
         run: |
-          echo "node: $(node -v)"
-          echo "one-way-git-sync: $(npx -y --package=one-way-git-sync@latest one-way-git-sync --version)"
+          echo "bun: $(bun -v)"
+          echo "one-way-git-sync: $(bunx --bun one-way-git-sync --version)"
 
       - run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
       - run: |
-          npx -y --package=one-way-git-sync@latest one-way-git-sync \
-            ${{ inputs.sync_params_without_dest }} \
+          bunx --bun one-way-git-sync ${{ inputs.sync_params_without_dest }} \
             -d ${{ secrets.DEST_GIT_URL }}
         env:
           HUSKY: 0
