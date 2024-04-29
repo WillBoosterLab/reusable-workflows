@@ -60,7 +60,7 @@ jobs:
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
       - id: check-node
         run: |
-          if grep -q nodejs .tool-versions && [[ ! -f .node-version ]] && [[ ! $(node --version) ]] && [[ ! $(npx --version) ]]; then
+          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]] && [[ ! $(node --version) ]] && [[ ! $(npx --version) ]]; then
             echo "require-node-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
@@ -71,7 +71,7 @@ jobs:
           node --version
           npx --version
           NODE_VERSIONS=""
-          if grep -q nodejs .tool-versions && [[ ! -f .node-version ]]; then
+          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
             NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
