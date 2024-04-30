@@ -68,8 +68,6 @@ jobs:
       - id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
-          node --version
-          npx --version
           NODE_VERSIONS=""
           if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
