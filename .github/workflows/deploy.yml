@@ -3,6 +3,9 @@ name: Deploy app
 on:
   workflow_call:
     inputs:
+      branch:
+        required: false
+        type: string
       ci_size:
         default: medium
         required: false
@@ -81,6 +84,8 @@ jobs:
       WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
       - if: ${{ inputs.file_path_1 }}

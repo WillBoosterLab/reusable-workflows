@@ -10,7 +10,7 @@ on:
         required: false
         type: string
         default: 'ready :rocket:'
-      labelOperator:
+      label_operator:
         required: false
         type: string
         default: OR
@@ -32,4 +32,4 @@ jobs:
           project-url: ${{ secrets.GH_PROJECT_URL }}
           github-token: ${{ secrets.GH_TOKEN }}
           labeled: ${{ inputs.labeled }}
-          labelOperator: ${{ inputs.labelOperator }}
+          label-operator: ${{ inputs.label_operator }}
