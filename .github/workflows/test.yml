@@ -148,22 +148,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - run: ${{ steps.check-ver.outputs.runner }} install || true # To ignore postinstall errors
-      - run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.check-ver.outputs.runner }} run common/ci-setup; fi
-      - run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.check-ver.outputs.runner }} run test/ci-setup; fi
-      - run: if grep -q '"typecheck":' package.json; then ${{ steps.check-ver.outputs.runner }} run typecheck; fi
+      - run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+      - run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
+      - run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
+      - run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
       - name: Lint & Build
         run: |
           GIT_STATUS=$(git status)
           if grep -q '"lint-fix":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run lint-fix
+            ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run lint
+            ${{ steps.env-info.outputs.runner }} run lint
           fi
           if grep -q '"build/ci":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run build/ci
+            ${{ steps.env-info.outputs.runner }} run build/ci
           elif grep -q '"build":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run build
+            ${{ steps.env-info.outputs.runner }} run build
           fi
           if [[ "$GIT_STATUS" != "$(git status)" ]]; then
             echo "Found changes during lint-fix and/or build"
@@ -184,11 +184,11 @@ jobs:
       - name: Test
         run: |
           if [[ "${{ env.HAS_TEST_COMMAND }}" == "true" ]]; then
-            ${{ steps.check-ver.outputs.runner }} run ${{ inputs.custom_test_command }}
+            ${{ steps.env-info.outputs.runner }} run ${{ inputs.custom_test_command }}
           elif grep -q '"test/ci":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run test/ci
+            ${{ steps.env-info.outputs.runner }} run test/ci
           elif grep -q '"test":' package.json; then
-            ${{ steps.check-ver.outputs.runner }} run test
+            ${{ steps.env-info.outputs.runner }} run test
           fi
       - name: Run lint-staged
         run: |
@@ -197,7 +197,7 @@ jobs:
               sed -i -e 's/"name":/"name" :/' $file
               git add -A
             done
-            ${{ steps.check-ver.outputs.runner }} run lint-staged --allow-empty
+            ${{ steps.env-info.outputs.runner }} run lint-staged --allow-empty
           fi
       - name: Test release script
         if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
@@ -205,9 +205,9 @@ jobs:
           if grep -q '"semantic-release":' package.json && [[ $(node --version) > "v20" ]]; then
             git switch -C $(jq -r ".branches[0]" .releaserc.json)
             if grep -q '"release-test":' package.json; then
-              ${{ steps.check-ver.outputs.runner }} run release-test
+              ${{ steps.env-info.outputs.runner }} run release-test
             else
-              ${{ steps.check-ver.outputs.runner }} run semantic-release --dry-run
+              ${{ steps.env-info.outputs.runner }} run semantic-release --dry-run
             fi
           fi
         env:

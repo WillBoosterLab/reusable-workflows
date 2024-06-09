@@ -199,13 +199,13 @@ jobs:
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
-      - run: ${{ steps.check-ver.outputs.runner }} install || true # To ignore postinstall errors
+      - run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
 
       - if: ${{ env.HAS_GCP_SA_KEY_JSON_FOR_FIREBASE == 'true' }}
         name: Create credential file for Firebase
         run: echo '${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}' > $GOOGLE_APPLICATION_CREDENTIALS
 
-      - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.check-ver.outputs.runner }} run common/ci-setup; fi
+      - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
 
       - name: Deploy
         uses: nick-fields/retry@v3
@@ -214,8 +214,8 @@ jobs:
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
             # GCP_SA_KEY_JSON may be used in deploy/ci-setup
-            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.check-ver.outputs.runner }} run deploy/ci-setup; fi
-            ${{ steps.check-ver.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
+            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run deploy/ci-setup; fi
+            ${{ steps.env-info.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
