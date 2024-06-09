@@ -58,7 +58,7 @@ jobs:
 
       - run: |
           if [[ "${{ steps.check-ver.outputs.runner }}" == "bun" ]]; then
-            bun x wbfy --version && bun x wbfy .
+            bunx wbfy --version && bunx wbfy .
           else
             yarn dlx wbfy --version && yarn dlx wbfy .
           fi
