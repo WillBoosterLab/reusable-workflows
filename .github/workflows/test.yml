@@ -107,11 +107,6 @@ jobs:
           if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
-          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
-            echo "runner=bun run" >> $GITHUB_OUTPUT
-          else
-            echo "runner=yarn" >> $GITHUB_OUTPUT
-          fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v4
         with:
@@ -125,9 +120,15 @@ jobs:
           echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          YARN=$(yarn -v); echo "yarn: $YARN"
-          if [[ "$YARN" == "1."* ]] && [[ "${{ steps.check-ver.outputs.runner }}" == "yarn" ]]; then
-            echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
+            echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
 
           if PYTHON=$(python --version 2> /dev/null); then echo "python: $PYTHON"; fi

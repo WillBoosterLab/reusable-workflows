@@ -48,15 +48,26 @@ jobs:
         run: |
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          YARN=$(yarn -v); echo "yarn: $YARN"
-          if [[ "$YARN" == "1."* ]]; then
-            echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            echo "yarn: $(yarn -v)"
+            echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
 
-      - run: yarn dlx wbfy --version && yarn dlx wbfy .
+      - run: |
+          if [[ "${{ steps.check-ver.outputs.runner }}" == "bun" ]]; then
+            bun x wbfy --version && bun x wbfy .
+          else
+            yarn dlx wbfy --version && yarn dlx wbfy .
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      - run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
+      - run: |
+          if [[ "$(cat package.json)" == *'"build":'* ]]; then
+            ${{ steps.check-ver.outputs.runner }} run build
+          fi
       - run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
