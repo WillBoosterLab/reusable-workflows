@@ -102,6 +102,11 @@ jobs:
           if [[ -f .node-version || "$(cat .tool-versions)" == *'nodejs'* ]]; then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+          fi
       - name: Check gcloud is required
         id: check-gcloud
         run: |
@@ -144,7 +149,7 @@ jobs:
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
           YARN=$(yarn -v); echo "yarn: $YARN"
-          if [[ "$YARN" == "1."* ]]; then
+          if [[ "$YARN" == "1."* ]] && [[ "${{ steps.check-ver.outputs.runner }}" == "yarn" ]]; then
             echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
           fi
 
@@ -193,13 +198,13 @@ jobs:
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Configure docker to use gcloud
         run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev --quiet
-      - run: yarn install || true # To ignore postinstall errors
+      - run: ${{ steps.check-ver.outputs.runner }} install || true # To ignore postinstall errors
 
       - if: ${{ env.HAS_GCP_SA_KEY_JSON_FOR_FIREBASE == 'true' }}
         name: Create credential file for Firebase
         run: echo '${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}' > $GOOGLE_APPLICATION_CREDENTIALS
 
-      - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then yarn run common/ci-setup; fi
+      - run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.check-ver.outputs.runner }} run common/ci-setup; fi
 
       - name: Deploy
         uses: nick-fields/retry@v3
@@ -208,8 +213,8 @@ jobs:
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
             # GCP_SA_KEY_JSON may be used in deploy/ci-setup
-            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then yarn run deploy/ci-setup; fi
-            yarn run ${{ inputs.deploy_command || 'deploy' }}
+            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.check-ver.outputs.runner }} run deploy/ci-setup; fi
+            ${{ steps.check-ver.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
