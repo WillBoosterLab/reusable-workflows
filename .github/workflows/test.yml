@@ -228,5 +228,5 @@ jobs:
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
           true $(docker system prune -a -f --filter "until=8h")
           if [[ ! $(docker ps) ]]; then
-            (sleep 5; sudo reboot) &
+            (which docker && sleep 5 && sudo reboot) &
           fi
