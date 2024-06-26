@@ -237,8 +237,6 @@ jobs:
                ${{ secrets.DISCORD_WEBHOOK_URL }}
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment != 'production' }}
         run: |
-          REPO_NAME="[${{ github.event.repository.name }}](${{ github.event.repository.html_url }})"
-          VERSION=[$WB_VERSION](https://github.com/${{ github.repository }}/commits/$WB_VERSION)
           curl -X POST -H "Content-Type: application/json" \
                --data "{
                   \"username\": \"WillBooster Bot\",
@@ -248,8 +246,6 @@ jobs:
                ${{ secrets.DISCORD_WEBHOOK_URL }}
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment == 'production' }}
         run: |
-          REPO_NAME="[${{ github.event.repository.name }}](${{ github.event.repository.html_url }})"
-          VERSION=[$WB_VERSION](https://github.com/${{ github.repository }}/commits/$WB_VERSION)
           curl -X POST -H "Content-Type: application/json" \
                --data "{
                   \"username\": \"WillBooster Bot\",
