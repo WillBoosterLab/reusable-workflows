@@ -35,6 +35,10 @@ on:
       ignore_renovate:
         required: false
         type: boolean
+      notify_failure_discord_mention:
+        default: <@410228643143483402>
+        required: false
+        type: string
       runs_on:
         required: false
         type: string
@@ -232,7 +236,7 @@ jobs:
                --data "{
                   \"username\": \"WillBooster Bot\",
                   \"avatar_url\": \"https://avatars.githubusercontent.com/u/98675783\",
-                  \"content\": \"<@410228643143483402> $REPO_LINK の${{inputs.environment}}環境 (${{ inputs.server_url }}) を $COMMIT_LINK に更新しようとして、[失敗]($WORKFLOW_URL)しました！！！\"
+                  \"content\": \"${{inputs.notify_failure_discord_mention}} $REPO_LINK の${{inputs.environment}}環境 (${{ inputs.server_url }}) を $COMMIT_LINK に更新しようとして、[失敗]($WORKFLOW_URL)しました！！！\"
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && inputs.environment != 'production' }}

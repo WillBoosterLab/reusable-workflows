@@ -10,6 +10,9 @@ on:
         default: medium
         required: false
         type: string
+      custom_test_command:
+        required: false
+        type: string
       dot_env_path:
         default: .env
         required: false
@@ -24,9 +27,6 @@ on:
         required: false
         type: string
       target_organization:
-        required: false
-        type: string
-      custom_test_command:
         required: false
         type: string
     secrets:
