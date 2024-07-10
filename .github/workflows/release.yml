@@ -72,9 +72,15 @@ jobs:
           echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          YARN=$(yarn -v); echo "yarn: $YARN"
-          if [[ "$YARN" == "1."* ]]; then
-            echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
+            echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
@@ -87,14 +93,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - run: yarn install || true # To ignore postinstall errors
+      - name: Install dependencies
+        run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
       - if: ${{ !inputs.skip_build }}
-        run: if [[ "$(cat package.json)" == *'"build":'* ]]; then yarn build; fi
-      - run: |
+        name: Build
+        run: if [[ "$(cat package.json)" == *'"build":'* ]]; then ${{ steps.env-info.outputs.runner }} run build; fi
+      - name: Release
+        run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
-            yarn release
+            ${{ steps.env-info.outputs.runner }} run release
           else
-            yarn semantic-release
+            ${{ steps.env-info.outputs.runner }} run semantic-release
           fi
         # Existing GITHUB_TOKEN cannot trigger release (published) event
         # We need to pass a personal token (e.g. secrets.GH_BOT_PAT) to secrets.GH_TOKEN

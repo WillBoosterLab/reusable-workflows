@@ -148,10 +148,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
-      - run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
-      - run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
-      - run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
+      - name: Install dependencies
+        run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+      - name: Run "common/ci-setup" npm script if exists
+        run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
+      - name: Run "test/ci-setup" npm script if exists
+        run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
+      - name: Run "typecheck" npm script if exists
+        run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
       - name: Lint & Build
         run: |
           GIT_STATUS=$(git status)
@@ -220,7 +224,7 @@ jobs:
           path: ${{ inputs.artifact_path }}
 
       - if: ${{ always() }}
-        name: Clean up
+        name: Clean up pyc files and docker
         run: |
           # pyc
           sudo rm **/*.pyc &
