@@ -35,7 +35,7 @@ on:
       ignore_renovate:
         required: false
         type: boolean
-      failure_mention_on_discrod:
+      failure_mention_on_discord:
         # default value is @exKAZUu
         default: <@410228643143483402>
         required: false
