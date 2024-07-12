@@ -271,7 +271,7 @@ jobs:
           sudo rm -f **/*.pyc &
           # Docker
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
-          true $(docker system prune -a -f --filter "until=8h")
+          true $(docker system prune -a -f --filter "until=4h")
           if [[ ! $(docker ps) ]]; then
             (which docker && sleep 5 && sudo reboot) &
           fi
