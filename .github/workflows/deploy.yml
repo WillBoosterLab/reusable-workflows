@@ -268,7 +268,7 @@ jobs:
         name: Clean up pyc files and docker
         run: |
           # pyc
-          sudo rm **/*.pyc &
+          sudo rm -f **/*.pyc &
           # Docker
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
           true $(docker system prune -a -f --filter "until=8h")
