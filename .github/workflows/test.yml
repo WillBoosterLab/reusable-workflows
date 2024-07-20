@@ -65,6 +65,8 @@ jobs:
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
         uses: actions/setup-node@v4
+        with:
+          check-latest: true
       - id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
@@ -110,6 +112,7 @@ jobs:
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v4
         with:
+          check-latest: true
           node-version: ${{ matrix.node-version || 20 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main

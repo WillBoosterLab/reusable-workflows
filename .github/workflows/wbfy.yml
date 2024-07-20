@@ -41,6 +41,7 @@ jobs:
       # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
       - uses: actions/setup-node@v4
         with:
+          check-latest: true
           node-version: 20
       - name: Show environment information
         id: env-info
