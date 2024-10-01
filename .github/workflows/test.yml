@@ -162,6 +162,9 @@ jobs:
       - name: Lint & Build
         run: |
           GIT_STATUS=$(git status)
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            bun update
+          fi
           if grep -q '"lint-fix":' package.json; then
             ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
