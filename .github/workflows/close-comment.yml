@@ -40,7 +40,7 @@ jobs:
           END_OF_HEARDOC
           cat temp/addCloseComment.mjs
       - run: |
-          node temp/addCloseComment.mjs
+          node temp/addCloseComment.mjs || true
           rm -Rf temp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
