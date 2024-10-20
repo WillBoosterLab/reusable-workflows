@@ -152,7 +152,12 @@ jobs:
             ${{ runner.os }}-yarn-v1-
 
       - name: Install dependencies
-        run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            bun update
+          else
+            ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
+          fi
       - name: Run "common/ci-setup" npm script if exists
         run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
       - name: Run "test/ci-setup" npm script if exists
@@ -162,9 +167,6 @@ jobs:
       - name: Lint & Build
         run: |
           GIT_STATUS=$(git status)
-          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            bun update
-          fi
           if grep -q '"lint-fix":' package.json; then
             ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
