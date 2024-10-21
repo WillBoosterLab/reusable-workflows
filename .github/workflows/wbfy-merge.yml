@@ -68,7 +68,7 @@ jobs:
           # Since wb-oracle-1 causes an error with exit code: 5
           git config --unset core.hooksPath || true
           git merge origin/wbfy --squash
-          if git commit -m "fix: willboosterify this repo"; then
+          if git commit -m "chore: willboosterify this repo"; then
             git push origin ${{ github.event.repository.default_branch }}
           fi
           git push origin :wbfy
@@ -78,7 +78,7 @@ jobs:
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
           # Since a duplicated PR is not allowed
-          gh pr create -R ${{ github.repository }} --head wbfy --base main --title "fix: willboosterify this repo" --body "" || true
+          gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
 
       - name: Clean up
         if: always()
