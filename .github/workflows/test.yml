@@ -177,6 +177,7 @@ jobs:
           elif grep -q '"build":' package.json; then
             ${{ steps.env-info.outputs.runner }} run build
           fi
+          git status
           if [[ "$GIT_STATUS" != "$(git status)" ]]; then
             echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
