@@ -166,7 +166,6 @@ jobs:
         run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
       - name: Lint & Build
         run: |
-          GIT_STATUS=$(git status)
           if grep -q '"lint-fix":' package.json; then
             ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
@@ -177,8 +176,7 @@ jobs:
           elif grep -q '"build":' package.json; then
             ${{ steps.env-info.outputs.runner }} run build
           fi
-          git status
-          if [[ "$GIT_STATUS" != "$(git status)" ]]; then
+          if git status | grep -q "Changes not staged for commit"; then
             echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               git status
