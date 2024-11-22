@@ -90,6 +90,8 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
+      - name: Add Homebrew to PATH for Apple Silicon
+        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
