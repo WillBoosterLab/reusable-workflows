@@ -88,6 +88,8 @@ jobs:
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
       WB_ENV: ${{ inputs.environment }}
     steps:
+      - name: Add Homebrew to PATH for Apple Silicon
+        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch }}

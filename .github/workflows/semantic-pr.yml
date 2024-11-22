@@ -14,6 +14,8 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
+      - name: Add Homebrew to PATH for Apple Silicon
+        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: amannn/action-semantic-pull-request@v5
         with:
           wip: true
