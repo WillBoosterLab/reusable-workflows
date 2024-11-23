@@ -183,9 +183,9 @@ jobs:
             ${{ steps.env-info.outputs.runner }} run build
           fi
           if git status | grep -q "Changes not staged for commit"; then
+            git status
             echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              git status
               git stash
               git fetch origin ${{ github.head_ref }}
               git switch ${{ github.head_ref }}
