@@ -184,6 +184,7 @@ jobs:
           fi
           if git status | grep -q "Changes not staged for commit"; then
             git status
+            git diff
             echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               git stash
