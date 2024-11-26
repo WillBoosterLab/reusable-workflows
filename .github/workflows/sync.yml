@@ -22,9 +22,6 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
-
       # Because one-way-git-sync requires full history
       - uses: actions/checkout@v4
         with:

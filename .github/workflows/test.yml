@@ -43,8 +43,6 @@ jobs:
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@master
         with:
@@ -58,8 +56,6 @@ jobs:
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
       - id: check-node
@@ -94,8 +90,6 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true

@@ -24,8 +24,6 @@ jobs:
     outputs:
       text: ${{ steps.echo.outputs.text }}
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
       - uses: willbooster/asdf-actions/install@main
       - id: echo
