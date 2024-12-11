@@ -14,6 +14,8 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
+      - name: Add Homebrew to PATH for Apple Silicon
+        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - run: |
           mkdir -p temp
           echo "import { spawnSync } from 'node:child_process';" > temp/addCloseComment.mjs
