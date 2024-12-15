@@ -68,7 +68,7 @@ jobs:
         run: |
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
-          # Since wb-oracle-1 causes an error with exit code: 5
+          : # Since wb-oracle-1 causes an error with exit code: 5
           git config --unset core.hooksPath || true
           git merge origin/wbfy --squash
           if git commit -m "chore: willboosterify this repo"; then
@@ -80,7 +80,7 @@ jobs:
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
-          # Since a duplicated PR is not allowed
+          : # Since a duplicated PR is not allowed
           gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
 
       - name: Clean up

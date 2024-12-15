@@ -240,9 +240,9 @@ jobs:
       - if: ${{ always() }}
         name: Clean up pyc files and docker
         run: |
-          # pyc
+          : # pyc
           sudo rm -f **/*.pyc &
-          # Docker
+          : # Docker
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
           true $(docker system prune -a -f --filter "until=4h")
           if [[ ! $(docker ps) ]]; then

@@ -134,7 +134,7 @@ jobs:
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
               asdf plugin add python || true
               asdf local python $PYTHON_VERSION || true
-              # Deal with incomplete python installation
+              : # Deal with incomplete python installation
               python --version || asdf uninstall python $PYTHON_VERSION
               asdf install python $PYTHON_VERSION
               asdf local python $PYTHON_VERSION
@@ -223,7 +223,7 @@ jobs:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
-            # GCP_SA_KEY_JSON may be used in deploy/ci-setup
+            : # GCP_SA_KEY_JSON may be used in deploy/ci-setup
             if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run deploy/ci-setup; fi
             ${{ steps.env-info.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
         env:
@@ -270,9 +270,9 @@ jobs:
       - if: ${{ always() }}
         name: Clean up pyc files and docker
         run: |
-          # pyc
+          : # pyc
           sudo rm -f **/*.pyc &
-          # Docker
+          : # Docker
           true $(docker rm -f $(docker ps -q) 2> /dev/null)
           true $(docker system prune -a -f --filter "until=4h")
           if [[ ! $(docker ps) ]]; then
