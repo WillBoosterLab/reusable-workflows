@@ -166,7 +166,7 @@ jobs:
           if POETRY=$(poetry --version 2> /dev/null); then
             echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
-            poetry config virtualenvs.prefer-active-python true
+            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
 
           if gcloud -v &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
