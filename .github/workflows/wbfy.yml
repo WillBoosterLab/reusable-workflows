@@ -41,23 +41,45 @@ jobs:
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
-      # We prefer actions/setup-node to asdf because asdf is slow on GitHub runners
-      - uses: actions/setup-node@v4
+      - name: Check version files
+        id: check-ver
+        run: |
+          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
+          fi
+          if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
+            echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
+        uses: actions/setup-node@v4
         with:
           check-latest: true
-          node-version: 20
+          node-version: ${{ 22 }}
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: willbooster/asdf-actions/install@main
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
         run: |
+          echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
           if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
             echo "bun: $(bun -v)"
             echo "runner=bun" >> $GITHUB_OUTPUT
           else
-            echo "yarn: $(yarn -v)"
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
+          fi
+
+          if PYTHON=$(python --version 2> /dev/null); then echo "python: $PYTHON"; fi
+          if POETRY=$(poetry --version 2> /dev/null); then
+            echo "poetry: $POETRY"
+            poetry config virtualenvs.in-project true
+            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
 
       - run: |
