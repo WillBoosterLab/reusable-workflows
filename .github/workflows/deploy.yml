@@ -124,8 +124,6 @@ jobs:
           node-version: ${{ matrix.node-version || 22 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
         uses: willbooster/asdf-actions/install@main
-        with:
-          asdf_branch: v0.15.0
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with asdf
         uses: nick-fields/retry@v3
