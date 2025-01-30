@@ -67,7 +67,8 @@ jobs:
           node-version: ${{ matrix.node-version || 22 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
-        asdf_branch: v0.15.0
+        with:
+          asdf_branch: v0.15.0
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212

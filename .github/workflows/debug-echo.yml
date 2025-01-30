@@ -28,7 +28,8 @@ jobs:
         run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
       - uses: willbooster/asdf-actions/install@main
-        asdf_branch: v0.15.0
+        with:
+          asdf_branch: v0.15.0
       - id: echo
         run: |
           echo "text=${{ inputs.text }}" >> $GITHUB_OUTPUT
