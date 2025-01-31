@@ -123,6 +123,7 @@ jobs:
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
       - name: Check asdf version
+        run: |
           asdf --version
           if [[ $(asdf --version) != v0.15.0* ]]; then
             exit 1
