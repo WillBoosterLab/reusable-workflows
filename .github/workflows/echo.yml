@@ -21,8 +21,17 @@ jobs:
       - name: Add Homebrew to PATH for Apple Silicon
         run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
+      - name: Check asdf version (before)
+        run: |
+          if [[ -f "$HOME/.asdf/asdf.sh" ]]; then
+            . "$HOME/.asdf/asdf.sh"
+            asdf --version
+            if [[ $(asdf --version) != v0.15.0* ]]; then
+              exit 1
+            fi
+          fi
       - uses: willbooster/asdf-actions/install@main
-      - name: Check asdf version
+      - name: Check asdf version (after)
         run: |
           asdf --version
           if [[ $(asdf --version) != v0.15.0* ]]; then
