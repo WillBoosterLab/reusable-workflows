@@ -56,7 +56,7 @@ jobs:
           paths_ignore: '["**.md", "**/docs/**"]'
   detect-node-version-matrix:
     needs: pre
-    if: ${{ needs.pre.outputs.should_skip != 'true' }}
+    if: ${{ inputs.no_skip || needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
