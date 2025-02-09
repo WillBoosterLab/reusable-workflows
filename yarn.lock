@@ -204,9 +204,9 @@ __metadata:
   linkType: hard
 
 "git-hooks-list@npm:^3.0.0":
-  version: 3.1.0
-  resolution: "git-hooks-list@npm:3.1.0"
-  checksum: 10c0/f1b93dd11b80b2a687b99a8bb553c0d07f344532d475b3ac2a5ff044d40fa71567ddcfa5cb39fae0b4e43a670a33f02f71ec3b24b7263233f3a3df89deddfb5a
+  version: 3.2.0
+  resolution: "git-hooks-list@npm:3.2.0"
+  checksum: 10c0/6fdbc727da8e5a6fd9be47b40dd896db3a5c38196a3a52d2f0ed66fe28a6e0df50128b6e674d52b04fa5932a395b693441da9c0cfa7df16f1eff83aee042b127
   languageName: node
   linkType: hard
 
@@ -475,11 +475,11 @@ __metadata:
   linkType: hard
 
 "semver@npm:^7.6.0":
-  version: 7.7.0
-  resolution: "semver@npm:7.7.0"
+  version: 7.7.1
+  resolution: "semver@npm:7.7.1"
   bin:
     semver: bin/semver.js
-  checksum: 10c0/bcd1c03209b4be7d8ca86c976a0410beba7d4ec1d49d846a4be154b958db1ff5eaee50760c1d4f4070b19dee3236b8672d3e09642c53ea23740398bba2538a2d
+  checksum: 10c0/fd603a6fb9c399c6054015433051bdbe7b99a940a8fb44b85c2b524c4004b023d7928d47cb22154f8d054ea7ee8597f586605e05b52047f048278e4ac56ae958
   languageName: node
   linkType: hard
 
