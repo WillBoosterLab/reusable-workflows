@@ -206,6 +206,7 @@ jobs:
             git diff
             echo "Found changes during lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              rm -Rf **/.next
               git stash
               git fetch origin ${{ github.head_ref }}
               git switch ${{ github.head_ref }}
