@@ -1,0 +1,16 @@
+name: 'Assignee Notify'
+description: 'Notify when an assignee appears' 
+
+inputs:
+  ref:
+    description: 'Issue Number'
+    required: true
+
+on:
+  issues:
+    types: [labbeled, assigned]
+
+
+runs:
+  using: 'node16'
+  main: 'dist/index.js'

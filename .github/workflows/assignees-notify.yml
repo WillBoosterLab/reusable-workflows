@@ -1,0 +1,26 @@
+name: 'test for assignee'
+
+on:
+  issues:
+    types: [labbeled, assigned]
+
+
+jobs:
+  request:
+    name: test for assignee
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Using Node version 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
+      - name: ts action
+        uses: ./.github/actions/assignees-notify
+        with:
+          ref: ${{ github.event.issue.html_url }}
+
