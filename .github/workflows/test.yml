@@ -41,14 +41,14 @@ on:
         required: false
 jobs:
   pre:
-    if: ${{ !inputs.no_skip && !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    # To avoid testing on synced (mirrored) repos.
+    if: ${{ !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
-      - id: skip_check
+      - if: ${{ !inputs.no_skip }}
+        id: skip_check
         uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: false
