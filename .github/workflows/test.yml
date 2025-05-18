@@ -67,7 +67,7 @@ jobs:
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
       - id: check-node
         run: |
-          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]] && [[ ! $(node --version) ]] && [[ ! $(npx --version) ]]; then
+          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]] && ([[ ! $(node --version) ]] || [[ ! $(npx --version) ]]); then
             echo "require-node-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
