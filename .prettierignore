@@ -12,12 +12,16 @@ test-fixtures/
 *.min.js
 .yarn/
 .pnp.js
+!.keep
+.aider*
+.env.production
+.idea/AugmentWebviewStateStore.xml
+.idea/copilot/chatSessions/
 .devcontainer/
+*/mount/*.hash
+__generated__/
 dist/
 temp/
-Icon[]
-!.keep
-*/mount/*.hash
 
 # Created by https://www.toptal.com/developers/gitignore/api/windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows

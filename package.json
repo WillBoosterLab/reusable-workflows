@@ -4,18 +4,20 @@
   "license": "UNLICENSED",
   "author": "WillBooster Inc.",
   "scripts": {
+    "check-for-ai": "yarn install > /dev/null && yarn format > /dev/null && yarn lint-fix --quiet && yarn typecheck && yarn test --silent",
     "cleanup": "yarn format",
     "format": "sort-package-json && yarn prettify",
-    "postinstall": "husky",
+    "postinstall": "husky || true",
     "prepack": "pinst --disable",
     "postpack": "pinst --enable",
-    "prettify": "prettier --cache --color --write \"**/{.*/,}*.{cjs,css,cts,htm,html,js,json,json5,jsx,md,mjs,mts,scss,ts,tsx,vue,yaml,yml}\" \"!**/test-fixtures/**\""
+    "prepare": "husky || true",
+    "prettify": "prettier --cache --color --write \"**/{.*/,}*.{cjs,css,cts,htm,html,js,json,json5,jsonc,jsx,md,mjs,mts,scss,ts,tsx,vue,yaml,yml}\" \"!**/test-fixtures/**\""
   },
   "prettier": "@willbooster/prettier-config",
   "devDependencies": {
     "@willbooster/prettier-config": "10.0.0",
     "husky": "9.1.7",
-    "lint-staged": "15.5.2",
+    "lint-staged": "16.0.0",
     "pinst": "3.0.0",
     "prettier": "3.5.3",
     "sort-package-json": "3.2.1"
