@@ -191,6 +191,9 @@ jobs:
         run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
       - name: Lint & Build
         run: |
+          if grep -q '"gen-code":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run gen-code
+          fi
           if grep -q '"lint-fix":' package.json; then
             ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
@@ -204,7 +207,7 @@ jobs:
           if git status | grep -q "Changes not staged for commit"; then
             git status
             git diff
-            echo "Found changes during lint-fix and/or build"
+            echo "Found changes during gen-code, lint-fix and/or build"
             if [[ "${{ github.event_name }}" == "pull_request" ]]; then
               rm -Rf **/.next
               git stash
