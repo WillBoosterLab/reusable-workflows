@@ -122,23 +122,8 @@ jobs:
         with:
           check-latest: true
           node-version: ${{ matrix.node-version || 22 }}
-      - name: Check asdf version (before)
-        run: |
-          if [[ -f "$HOME/.asdf/asdf.sh" ]]; then
-            . "$HOME/.asdf/asdf.sh"
-            asdf --version
-            if [[ $(asdf --version) != v0.15.0* ]]; then
-              exit 1
-            fi
-          fi
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
         uses: willbooster/asdf-actions/install@main
-      - name: Check asdf version (after)
-        run: |
-          asdf --version
-          if [[ $(asdf --version) != v0.15.0* ]]; then
-            exit 1
-          fi
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with asdf
         uses: nick-fields/retry@v3
@@ -148,16 +133,16 @@ jobs:
           command: |
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
               asdf plugin add python || true
-              asdf local python $PYTHON_VERSION || true
+              asdf set python $PYTHON_VERSION || true
               : # Deal with incomplete python installation
               python --version || asdf uninstall python $PYTHON_VERSION
               asdf install python $PYTHON_VERSION
-              asdf local python $PYTHON_VERSION
+              asdf set python $PYTHON_VERSION
             fi
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"gcloud"* ]]; then
               asdf plugin add gcloud || true
               asdf install gcloud $GCLOUD_VERSION
-              asdf local gcloud $GCLOUD_VERSION
+              asdf set gcloud $GCLOUD_VERSION
             fi
       - name: Show environment information
         id: env-info
