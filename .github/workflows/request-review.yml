@@ -17,8 +17,6 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      - name: Add Homebrew to PATH for Apple Silicon
-        run: echo "/opt/homebrew/bin" >> $GITHUB_PATH
       - run: |
           curl -H "Content-Type: application/json" \
                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
