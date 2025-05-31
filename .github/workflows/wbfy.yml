@@ -27,6 +27,7 @@ jobs:
     runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
+      NODE_OPTIONS: --max-old-space-size=2048
       # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       WB_ENV: ${{ inputs.environment }}
