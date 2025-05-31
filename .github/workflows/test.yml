@@ -169,7 +169,12 @@ jobs:
       - name: Run "test/ci-setup" npm script if exists
         run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
       - name: Run "typecheck" npm script if exists
-        run: if grep -q '"typecheck":' package.json; then ${{ steps.env-info.outputs.runner }} run typecheck; fi
+        run: |
+          if grep -q '"typecheck":' package.json; then
+            # Deal with .next errors
+            rm -Rf .next
+            ${{ steps.env-info.outputs.runner }} run typecheck
+          fi
       - name: Lint & Build
         run: |
           if grep -q '"gen-code":' package.json; then
