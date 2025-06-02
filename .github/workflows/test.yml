@@ -161,7 +161,7 @@ jobs:
       - name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            bun install
+            bun update --no-save
           else
             ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
           fi
