@@ -95,7 +95,13 @@ jobs:
             ${{ runner.os }}-yarn-v1-
 
       - name: Install dependencies
-        run: ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            # Because bun sometimes fails to install private repos (but, update is okay)
+            bun update --no-save
+          else
+            ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+          fi
       - if: ${{ !inputs.skip_build }}
         name: Build
         run: if [[ "$(cat package.json)" == *'"build":'* ]]; then ${{ steps.env-info.outputs.runner }} run build; fi
