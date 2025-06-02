@@ -161,8 +161,7 @@ jobs:
       - name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            # Because bun sometimes fails to install private repos (but, update is okay)
-            bun update --no-save
+            bun update
           else
             ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
           fi
