@@ -218,6 +218,8 @@ jobs:
           elif grep -q '"test":' package.json; then
             ${{ steps.env-info.outputs.runner }} run test
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Run lint-staged
         run: |
           if grep -q '"lint-staged":' package.json; then
