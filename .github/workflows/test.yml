@@ -23,6 +23,10 @@ on:
       github_hosted_runner:
         required: false
         type: boolean
+      paths_ignore:
+        default: '["**.md", "**/docs/**"]'
+        required: false
+        type: string
       runs_on:
         required: false
         type: string
@@ -53,17 +57,18 @@ jobs:
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
-          paths_ignore: '["**.md", "**/docs/**"]'
+          paths_ignore: ${{ inputs.paths_ignore }}
   detect-node-version-matrix:
     needs: pre
-    if: ${{ inputs.no_skip || needs.pre.outputs.should_skip != 'true' }}
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        uses: actions/checkout@v4
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
-      - id: check-node
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        id: check-node
         run: |
           if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]] && ([[ ! $(node --version) ]] || [[ ! $(npx --version) ]]); then
             echo "require-node-install=1" >> $GITHUB_OUTPUT
@@ -72,7 +77,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           check-latest: true
-      - id: detect-node-version-matrix
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
         run: |
           NODE_VERSIONS=""
@@ -96,18 +102,21 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
     steps:
-      - if: ${{ !inputs.no_skip }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
-      - uses: actions/checkout@v4
+          paths_ignore: ${{ inputs.paths_ignore }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        uses: actions/checkout@v4
         # To trigger other workflows when running 'git push'
         with:
           token: ${{ secrets.GH_TOKEN }}
-      - if: ${{ env.HAS_DOT_ENV == 'true' }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
-      - name: Check version files
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Check version files
         id: check-ver
         run: |
           if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
@@ -116,14 +125,15 @@ jobs:
           if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
-      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v4
         with:
           check-latest: true
           node-version: ${{ matrix.node-version || 22 }}
-      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
-      - name: Show environment information
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
         run: |
@@ -148,7 +158,7 @@ jobs:
             poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
 
-      - if: ${{ steps.env-info.outputs.yarn-dir }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v4
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
@@ -158,25 +168,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
 
-      - name: Install dependencies
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
             bun update
           else
             ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
           fi
-      - name: Run "common/ci-setup" npm script if exists
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "common/ci-setup" npm script if exists
         run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
-      - name: Run "test/ci-setup" npm script if exists
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "test/ci-setup" npm script if exists
         run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
-      - name: Run "typecheck" npm script if exists
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "typecheck" npm script if exists
         run: |
           if grep -q '"typecheck":' package.json; then
             # Deal with .next errors
             rm -Rf .next
             ${{ steps.env-info.outputs.runner }} run typecheck
           fi
-      - name: Lint & Build
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Lint & Build
         run: |
           if grep -q '"gen-code":' package.json; then
             ${{ steps.env-info.outputs.runner }} run gen-code
@@ -209,7 +224,8 @@ jobs:
             fi
             exit 1
           fi
-      - name: Test
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Test
         run: |
           if [[ "${{ env.HAS_TEST_COMMAND }}" == "true" ]]; then
             ${{ steps.env-info.outputs.runner }} run ${{ inputs.custom_test_command }}
@@ -220,7 +236,8 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      - name: Run lint-staged
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run lint-staged
         run: |
           if grep -q '"lint-staged":' package.json; then
             for file in $(ls package.json packages/*/package.json); do
@@ -229,8 +246,8 @@ jobs:
             done
             ${{ steps.env-info.outputs.runner }} run lint-staged --allow-empty
           fi
-      - name: Test release script
-        if: ${{ env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
+        name: Test release script
         run: |
           if grep -q '"semantic-release":' package.json && [[ $(node --version) > "v20" ]]; then
             git switch -C $(jq -r ".branches[0]" .releaserc.json)
@@ -243,7 +260,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - if: ${{ inputs.artifact_path }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
         uses: actions/upload-artifact@v4
         with:
           name: test-artifact
