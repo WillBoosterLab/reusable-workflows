@@ -88,7 +88,7 @@ jobs:
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
-    needs: detect-node-version-matrix
+    needs: [pre, detect-node-version-matrix]
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_size)) }}
     env:
       FORCE_COLOR: 3
