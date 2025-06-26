@@ -100,7 +100,7 @@ jobs:
     strategy:
       matrix:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
-        node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json) }}
+        node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json || '[""]') }}
     steps:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: fkirc/skip-duplicate-actions@master
