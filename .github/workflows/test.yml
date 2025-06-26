@@ -51,6 +51,7 @@ jobs:
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
+      # GitHub's Branch Protection and Rulesets require job running, so we should not skip entier jobs.
       - if: ${{ !inputs.no_skip }}
         id: skip_check
         uses: fkirc/skip-duplicate-actions@master
