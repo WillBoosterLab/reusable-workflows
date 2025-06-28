@@ -5,12 +5,13 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@willbooster/prettier-config@npm:10.0.0":
-  version: 10.0.0
-  resolution: "@willbooster/prettier-config@npm:10.0.0"
+"@willbooster/prettier-config@npm:10.1.3":
+  version: 10.1.3
+  resolution: "@willbooster/prettier-config@npm:10.1.3"
   peerDependencies:
-    prettier: ">=2"
-  checksum: 10c0/3895e78b9ba5eef3c1ac279ac1eec75abf7c40cc2877fe58fcee4841c9357f91dc4709bcaf71361cf29f7b0dd24b331b08add67f3a9ea1fa30232d3b6db13396
+    prettier: ">=3"
+    prettier-plugin-java: ">=2.6"
+  checksum: 10c0/9b62d874d9eab320e643e5cb6e3fcbb35bba0dfe03e32baed9da79803f0a884fe06e35884538ea1b81b2429dbe70bd53343c7c753b5dc80a9c2e343397e5c704
   languageName: node
   linkType: hard
 
@@ -356,7 +357,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "reusable-workflows@workspace:."
   dependencies:
-    "@willbooster/prettier-config": "npm:10.0.0"
+    "@willbooster/prettier-config": "npm:10.1.3"
     husky: "npm:9.1.7"
     lint-staged: "npm:16.1.2"
     pinst: "npm:3.0.0"
