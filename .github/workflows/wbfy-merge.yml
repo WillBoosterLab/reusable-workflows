@@ -71,9 +71,12 @@ jobs:
           git config --unset core.hooksPath || true
           git merge origin/wbfy --squash
           if git commit -m "chore: willboosterify this repo"; then
-            git push origin ${{ github.event.repository.default_branch }}
+            if git push origin ${{ github.event.repository.default_branch }}; then
+              git push origin :wbfy
+            else
+              gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
+            fi
           fi
-          git push origin :wbfy
         env:
           HUSKY: 0
 
