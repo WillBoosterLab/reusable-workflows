@@ -75,6 +75,7 @@ jobs:
               git push origin :wbfy
             else
               gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
+              gh pr merge -R ${{ github.repository }} wbfy --squash --delete-branch || true
             fi
           fi
         env:
