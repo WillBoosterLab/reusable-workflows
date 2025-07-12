@@ -65,25 +65,34 @@ jobs:
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
         run: |
+          echo "Setting git user config..."
           git config --global user.email "bot@willbooster.com"
           git config --global user.name "WillBooster Inc."
-          : # Since wb-oracle-1 causes an error with exit code: 5
+          echo "Unsetting core.hooksPath to disable husky (ignore error if not set)..."
+          # Since wb-oracle-1 causes an error with exit code: 5
           git config --unset core.hooksPath || true
+          echo "Merging origin/wbfy into current branch with --squash..."
           git merge origin/wbfy --squash
           if git commit -m "chore: willboosterify this repo"; then
+            echo "Commit successful. Attempting to push to ${{ github.event.repository.default_branch }}..."
             if git push origin ${{ github.event.repository.default_branch }}; then
+              echo "Push to ${{ github.event.repository.default_branch }} succeeded. Deleting wbfy branch on remote..."
               git push origin :wbfy
             else
+              echo "Push failed. Creating PR from wbfy to main..."
               gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
+              echo "Attempting to merge PR and delete wbfy branch..."
               gh pr merge -R ${{ github.repository }} wbfy --squash --delete-branch || true
             fi
+          else
+            echo "No changes to commit or commit failed."
           fi
         env:
           HUSKY: 0
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |
-          : # Since a duplicated PR is not allowed
+          # Since a duplicated PR is not allowed
           gh pr create -R ${{ github.repository }} --head wbfy --base main --title "chore: willboosterify this repo" --body "" || true
 
       - name: Clean up
