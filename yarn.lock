@@ -426,14 +426,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier-plugin-java@npm:2.7.1":
-  version: 2.7.1
-  resolution: "prettier-plugin-java@npm:2.7.1"
+"prettier-plugin-java@npm:2.7.3":
+  version: 2.7.3
+  resolution: "prettier-plugin-java@npm:2.7.3"
   dependencies:
     java-parser: "npm:3.0.1"
   peerDependencies:
     prettier: ^3.0.0
-  checksum: 10c0/e9554a4f7eaf2c3112e528924dc4537c427ae3afb812663fda58b69485a47e6fb5550799f8d081710e7c073050e5a902ae8807fb25569f7c2f2dbd4f37ff99f8
+  checksum: 10c0/9a831f773cc9c71853b68fda0fb05b8b944374cb2171e96eda88a824a0e1171a03fcf937976a22daf56e6b94247c83baaf3300782ed281f5dcb414919c2bc666
   languageName: node
   linkType: hard
 
@@ -465,7 +465,7 @@ __metadata:
     lint-staged: "npm:16.1.2"
     pinst: "npm:3.0.0"
     prettier: "npm:3.6.2"
-    prettier-plugin-java: "npm:2.7.1"
+    prettier-plugin-java: "npm:2.7.3"
     sort-package-json: "npm:3.4.0"
   languageName: unknown
   linkType: soft
