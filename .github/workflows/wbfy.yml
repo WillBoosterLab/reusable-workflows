@@ -82,9 +82,9 @@ jobs:
       - run: |
           ${{ steps.env-info.outputs.runner }} install
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            bunx wbfy --version && bunx wbfy .
+            bunx wbfy@latest --version && bunx wbfy@latest .
           else
-            yarn dlx wbfy --version && yarn dlx wbfy .
+            yarn dlx wbfy@latest --version && yarn dlx wbfy@latest .
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
