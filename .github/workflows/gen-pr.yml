@@ -1,0 +1,101 @@
+name: Generate PR with gen-pr and LLMs
+
+on:
+  workflow_call:
+    inputs:
+      ci_label:
+        default: medium
+        required: false
+        type: string
+      issue-number:
+        required: true
+        type: number
+      planning-model:
+        required: false
+        type: string
+      two-staged-planning:
+        required: false
+        type: boolean
+      reasoning-effort:
+        required: false
+        type: string
+      coding-tool:
+        required: true
+        type: string
+      repomix-extra-args:
+        required: false
+        type: string
+        default: "--compress --remove-empty-lines --include '{src,prisma}/**/*.{ts,tsx},i18n/*.json,prisma/schema.prisma' --ignore '**/__generated__/'"
+      aider-extra-args:
+        required: false
+        type: string
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  generate-pr:
+    if: inputs.issue-number != null
+    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Check version files
+        id: check-ver
+        run: |
+          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
+          fi
+          if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
+            echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: willbooster/asdf-actions/install@main
+      - name: Show environment information
+        id: env-info
+        # https://stackoverflow.com/a/677212
+        run: |
+          echo "concurrency-group: ${{ github.workflow }}-${{ github.ref }}"
+          echo "WB_ENV: $WB_ENV"
+          echo "node: $(node -v)"
+          echo "npm: $(npm -v)"
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+          fi
+
+          if PYTHON=$(python --version 2> /dev/null); then echo "python: $PYTHON"; fi
+          if POETRY=$(poetry --version 2> /dev/null); then
+            echo "poetry: $POETRY"
+            poetry config virtualenvs.in-project true
+            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
+          fi
+      - name: Remove .next directory
+        run: rm -Rf .next
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "common/ci-setup" npm script if exists
+        run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "test/ci-setup" npm script if exists
+        run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
+      - name: Generate PR with LLMs
+        uses: WillBooster/gen-pr@v2
+        with:
+          issue-number: ${{ inputs.issue-number }}
+          planning-model: ${{ inputs.planning-model }}
+          two-staged-planning: ${{ inputs.two-staged-planning }}
+          reasoning-effort: ${{ inputs.reasoning-effort }}
+          coding-tool: ${{ inputs.coding-tool }}
+          repomix-extra-args: ${{ inputs.repomix-extra-args }}
+          aider-extra-args: ${{ inputs.aider-extra-args }}
+          test-command: 'yarn check-all-for-ai'
+          max-test-attempts: 5
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
