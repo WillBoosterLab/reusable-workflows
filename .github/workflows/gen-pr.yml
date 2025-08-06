@@ -3,10 +3,15 @@ name: Generate PR with gen-pr and LLMs
 on:
   workflow_call:
     inputs:
+      # for setup
       ci_label:
         default: medium
         required: false
         type: string
+      github_hosted_runner:
+        required: false
+        type: boolean
+      # for gen-pr
       issue-number:
         required: true
         type: number
