@@ -118,6 +118,7 @@ jobs:
           aider-extra-args: ${{ inputs.aider-extra-args }}
           test-command: 'yarn check-all-for-ai'
           max-test-attempts: 5
+          remove-pattern: '## Self Check[\s\S]*'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
