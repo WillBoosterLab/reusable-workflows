@@ -75,7 +75,7 @@ on:
         required: false
       GH_TOKEN:
         required: false
-      RAILWAY_TOKEN:
+      RAILWAY_API_TOKEN:
         required: false
 
 jobs:
@@ -94,7 +94,7 @@ jobs:
       HAS_FLY_API_TOKEN: ${{ !!secrets.FLY_API_TOKEN }}
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
-      HAS_RAILWAY_TOKEN: ${{ !!secrets.RAILWAY_TOKEN }}
+      HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
@@ -234,7 +234,7 @@ jobs:
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 60
-          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
+          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
             : # GCP_SA_KEY_JSON may be used in deploy/ci-setup
             if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run deploy/ci-setup; fi
@@ -243,7 +243,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ inputs.railway_project_id }}
           RAILWAY_SERVICE_ID: ${{ inputs.railway_service_id }}
 
