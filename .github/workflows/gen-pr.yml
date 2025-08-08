@@ -113,8 +113,7 @@ jobs:
             poetry config virtualenvs.in-project true
             poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
-      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        name: Install dependencies
+      - name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
             bun update
@@ -123,12 +122,20 @@ jobs:
           fi
       - name: Remove .next directory
         run: rm -Rf .next
-      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        name: Run "common/ci-setup" npm script if exists
+      - name: Run "common/ci-setup" npm script if exists
         run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
-      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        name: Run "test/ci-setup" npm script if exists
+      - name: Run "test/ci-setup" npm script if exists
         run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
+      - name: Build
+        run: |
+          if grep -q '"gen-code":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run gen-code
+          fi
+          if grep -q '"build/ci":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run build/ci
+          elif grep -q '"build":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run build
+          fi
       - name: Generate PR with LLMs
         uses: WillBooster/gen-pr@v2
         with:
