@@ -11,6 +11,10 @@ on:
       github_hosted_runner:
         required: false
         type: boolean
+      dot_env_path:
+        default: .env
+        required: false
+        type: string
       # for gen-pr
       issue-number:
         required: true
@@ -35,6 +39,8 @@ on:
         required: false
         type: string
     secrets:
+      DOT_ENV:
+        required: false
       GH_TOKEN:
         required: true
       OPENAI_API_KEY:
@@ -58,10 +64,16 @@ jobs:
   generate-pr:
     if: inputs.issue-number != null
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    env:
+      # arguments
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
+        run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
+
       - name: Check version files
         id: check-ver
         run: |
