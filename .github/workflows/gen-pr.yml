@@ -98,6 +98,14 @@ jobs:
             poetry config virtualenvs.in-project true
             poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Install dependencies
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            bun update
+          else
+            ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
+          fi
       - name: Remove .next directory
         run: rm -Rf .next
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}

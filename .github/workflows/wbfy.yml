@@ -80,7 +80,11 @@ jobs:
           fi
 
       - run: |
-          ${{ steps.env-info.outputs.runner }} install
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            bun update
+          else
+            ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
+          fi
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
             bunx wbfy@latest --version && bunx wbfy@latest .
           else
