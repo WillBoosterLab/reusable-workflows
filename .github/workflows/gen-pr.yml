@@ -38,6 +38,9 @@ on:
       aider-extra-args:
         required: false
         type: string
+      test-command:
+        required: false
+        type: string
     secrets:
       DOT_ENV:
         required: false
@@ -136,7 +139,7 @@ jobs:
           coding-tool: ${{ inputs.coding-tool }}
           repomix-extra-args: ${{ inputs.repomix-extra-args }}
           aider-extra-args: ${{ inputs.aider-extra-args }}
-          test-command: 'yarn check-all-for-ai'
+          test-command: ${{ inputs.test-command }}
           max-test-attempts: 5
           remove-pattern: '## Self Check[\s\S]*'
         env:
