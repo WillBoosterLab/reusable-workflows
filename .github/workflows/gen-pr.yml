@@ -129,12 +129,12 @@ jobs:
       - name: Build
         run: |
           if grep -q '"gen-code":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run gen-code
+            ${{ steps.env-info.outputs.runner }} run gen-code || true
           fi
           if grep -q '"build/ci":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run build/ci
+            ${{ steps.env-info.outputs.runner }} run build/ci || true
           elif grep -q '"build":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run build
+            ${{ steps.env-info.outputs.runner }} run build || true
           fi
       - name: Generate PR with LLMs
         uses: WillBooster/gen-pr@v2
