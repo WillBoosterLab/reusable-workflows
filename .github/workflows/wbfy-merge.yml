@@ -50,7 +50,7 @@ jobs:
         run: |
           rm -rf .git
           rm -rf ./*
-          rm -rf ./.*
+          rm -rf .[^.]*
           git init
           git remote add origin git@github.com:${{ github.repository }}.git
           git fetch --depth 1 origin ${{ github.event.repository.default_branch }}
