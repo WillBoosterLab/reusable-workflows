@@ -1,4 +1,4 @@
-name: Fix
+name: Fix code automatically
 
 on:
   workflow_call:
@@ -64,6 +64,7 @@ jobs:
           else
             ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
           fi
+
       - name: Fix code
         run: |
           if grep -q '"gen-code":' package.json; then
@@ -85,7 +86,7 @@ jobs:
             git status
             git diff
             git add -A
-            git commit -m "fix: apply changes of fix workflow" --no-verify
+            git commit -m "fix: apply changes of autofix workflow" --no-verify
             git push origin ${{ github.head_ref }} --no-verify
           fi
         env:
