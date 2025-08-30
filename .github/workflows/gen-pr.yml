@@ -15,6 +15,9 @@ on:
         default: .env
         required: false
         type: string
+      target_organization:
+        required: false
+        type: string
       # for gen-pr
       issue-number:
         required: true
@@ -65,13 +68,13 @@ on:
 
 jobs:
   generate-pr:
-    if: inputs.issue-number != null
+    if: ${{ inputs.issue-number != null && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -111,7 +114,6 @@ jobs:
           if POETRY=$(poetry --version 2> /dev/null); then
             echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
-            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
       - name: Install dependencies
         run: |

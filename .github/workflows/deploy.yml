@@ -97,7 +97,7 @@ jobs:
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.branch }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -128,7 +128,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           check-latest: true
-          node-version: ${{ matrix.node-version || 22 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
         uses: willbooster/asdf-actions/install@main
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
@@ -173,7 +172,6 @@ jobs:
           if POETRY=$(poetry --version 2> /dev/null); then
             echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
-            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
 
           if gcloud -v &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
@@ -191,7 +189,7 @@ jobs:
           echo ${VERSION}
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -208,7 +206,7 @@ jobs:
           max_attempts: 5
           command: curl -L https://fly.io/install.sh | FLYCTL_INSTALL=$HOME/.fly sh
       - if: ${{ steps.check-gcloud.outputs.require-gcloud && env.HAS_GCP_SA_KEY_JSON == 'true' }}
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}

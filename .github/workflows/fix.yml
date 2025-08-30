@@ -1,0 +1,93 @@
+name: Fix
+
+on:
+  workflow_call:
+    inputs:
+      target_organization:
+        required: false
+        type: string
+
+concurrency:
+  group: fix-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: self-hosted
+    steps:
+      # To trigger other workflows when running 'git push'
+      - name: Checkout code with git
+        run: |
+          rm -rf .git
+          rm -rf ./*
+          rm -rf ./.*
+          git init
+          git remote add origin git@github.com:${{ github.repository }}.git
+          git fetch --depth 1 origin ${{ github.head_ref }}
+          git checkout ${{ github.head_ref }}
+      - name: Check version files
+        id: check-ver
+        run: |
+          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
+          fi
+          if [[ -f .node-version || "$(cat .tool-versions)" == *'nodejs'* ]]; then
+            echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
+        uses: actions/setup-node@v4
+        with:
+          check-latest: true
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: willbooster/asdf-actions/install@main
+      - name: Show environment information
+        id: env-info
+        # https://stackoverflow.com/a/677212
+        run: |
+          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            # Because bun sometimes fails to install private repos (but, update is okay)
+            bun update --no-save
+          else
+            ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+          fi
+      - name: Fix code
+        run: |
+          if grep -q '"gen-code":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run gen-code || true
+          fi
+          if grep -q '"cleanup":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run cleanup || true
+          elif grep -q '"lint-fix":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run lint-fix || true
+          elif grep -q '"lint":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run lint || true
+          fi
+          if grep -q '"build/ci":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run build/ci || true
+          elif grep -q '"build":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run build || true
+          fi
+          if git status | grep -q "Changes not staged for commit"; then
+            git status
+            git diff
+            git add -A
+            git commit -m "fix: apply changes of fix workflow" --no-verify
+            git push origin ${{ github.head_ref }} --no-verify
+          fi
+        env:
+          HUSKY: 0
+          LEFTHOOK: 0

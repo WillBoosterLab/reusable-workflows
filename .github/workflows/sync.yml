@@ -17,15 +17,21 @@ on:
 jobs:
   sync:
     # Make this workflow not work on other organizations for safety
-    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    if: ${{ github.event_name != 'pull_request' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: self-hosted
     env:
       FORCE_COLOR: 3
     steps:
-      # Because one-way-git-sync requires full history
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # To trigger other workflows when running 'git push'
+      - name: Checkout code with git
+        run: |
+          rm -rf .git
+          rm -rf ./*
+          rm -rf ./.*
+          git init
+          git remote add origin git@github.com:${{ github.repository }}.git
+          git fetch origin ${{ github.head_ref || github.ref_name }}
+          git checkout ${{ github.head_ref || github.ref_name }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -36,10 +42,8 @@ jobs:
           echo "one-way-git-sync: $(bunx --bun one-way-git-sync --version)"
 
       - run: |
-          git config --global user.email "bot@willbooster.com"
-          git config --global user.name "WillBooster Inc."
-      - run: |
           bunx --bun one-way-git-sync ${{ inputs.sync_params_without_dest }} \
             -d ${{ secrets.DEST_GIT_URL }}
         env:
           HUSKY: 0
+          LEFTHOOK: 0

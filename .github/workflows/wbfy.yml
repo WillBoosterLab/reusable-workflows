@@ -18,13 +18,10 @@ on:
     secrets:
       DOT_ENV:
         required: false
-      GH_TOKEN:
-        required: true
 jobs:
   wbfy:
-    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    # github.event.repository.private is always true if job is scheduled
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    if: ${{ github.event_name != 'pull_request' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: self-hosted
     env:
       FORCE_COLOR: 3
       NODE_OPTIONS: --max-old-space-size=4096
@@ -32,10 +29,16 @@ jobs:
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-        # To trigger other workflows when running 'git push'
-        with:
-          token: ${{ secrets.GH_TOKEN }}
+      # To trigger other workflows when running 'git push'
+      - name: Checkout code with git
+        run: |
+          rm -rf .git
+          rm -rf ./*
+          rm -rf ./.*
+          git init
+          git remote add origin git@github.com:${{ github.repository }}.git
+          git fetch --depth 1 origin ${{ github.event.repository.default_branch }}
+          git checkout ${{ github.event.repository.default_branch }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
@@ -52,7 +55,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           check-latest: true
-          node-version: ${{ 22 }}
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
       - name: Show environment information
@@ -90,22 +92,19 @@ jobs:
           else
             yarn dlx wbfy@latest --version && yarn dlx wbfy@latest .
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - run: |
           if [[ "$(cat package.json)" == *'"build":'* ]]; then
             ${{ steps.env-info.outputs.runner }} run build
           fi
       - run: |
-          git config --global user.email "bot@willbooster.com"
-          git config --global user.name "WillBooster Inc."
           git checkout -B wbfy
           git add -A
-          if git commit -m "chore: willboosterify this repo"; then
-            git push origin wbfy -f
+          if git commit -m "chore: willboosterify this repo" --no-verify; then
+            git push origin wbfy -f --no-verify
           fi
         env:
           HUSKY: 0
+          LEFTHOOK: 0
       - if: ${{ always() }}
         name: Delete credential files
         run: rm -f ${{ inputs.dot_env_path }}

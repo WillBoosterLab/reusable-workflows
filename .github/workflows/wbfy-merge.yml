@@ -8,24 +8,13 @@ on:
       target_organization:
         required: false
         type: string
-    secrets:
-      GH_TOKEN:
-        required: true
 jobs:
   wbfy-merge:
-    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    # github.event.repository.private is always true if job is scheduled
-    runs-on: ${{ (!github.event.repository.private && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    if: ${{ github.event_name != 'pull_request' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: self-hosted
     env:
       FORCE_COLOR: 3
     steps:
-      # https://github.com/cli/cli/issues/8441#issuecomment-1870271857
-      - name: Setup GitHub CLI
-        run: |
-          rm -Rf ~/.config/gh/* || true
-          echo ${{ secrets.GH_TOKEN }} | gh auth login --with-token
-          gh auth setup-git
-
       - name: Decide action
         id: decide-action
         run: |
@@ -56,26 +45,25 @@ jobs:
           rm -Rf temp
 
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
-        uses: actions/checkout@v4
-        with:
-          # Need histories to merge wbfy
-          fetch-depth: 0
-          # To trigger other workflows when running 'git push'
-          token: ${{ secrets.GH_TOKEN }}
+        # To trigger other workflows when running 'git push'
+        name: Checkout code with git
+        run: |
+          rm -rf .git
+          rm -rf ./*
+          rm -rf ./.*
+          git init
+          git remote add origin git@github.com:${{ github.repository }}.git
+          git fetch --depth 1 origin ${{ github.event.repository.default_branch }}
+          git fetch origin wbfy
+          git checkout ${{ github.event.repository.default_branch }}
       - if: ${{ steps.decide-action.outputs.action == 'merge' }}
         # Unset core.hooksPath to disable husky
         run: |
-          echo "Setting git user config..."
-          git config --global user.email "bot@willbooster.com"
-          git config --global user.name "WillBooster Inc."
-          echo "Unsetting core.hooksPath to disable husky (ignore error if not set)..."
-          # Since wb-oracle-1 causes an error with exit code: 5
-          git config --unset core.hooksPath || true
           echo "Merging origin/wbfy into current branch with --squash..."
           git merge origin/wbfy --squash
-          if git commit -m "chore: willboosterify this repo"; then
+          if git commit -m "chore: willboosterify this repo" --no-verify; then
             echo "Commit successful. Attempting to push to ${{ github.event.repository.default_branch }}..."
-            if git push origin ${{ github.event.repository.default_branch }}; then
+            if git push origin ${{ github.event.repository.default_branch }} --no-verify; then
               echo "Push to ${{ github.event.repository.default_branch }} succeeded. Deleting wbfy branch on remote..."
               git push origin :wbfy
             else
@@ -89,6 +77,7 @@ jobs:
           fi
         env:
           HUSKY: 0
+          LEFTHOOK: 0
 
       - if: ${{ steps.decide-action.outputs.action == 'pr' }}
         run: |

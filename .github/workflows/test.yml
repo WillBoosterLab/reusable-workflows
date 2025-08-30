@@ -66,7 +66,7 @@ jobs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: check-node
@@ -85,7 +85,7 @@ jobs:
           NODE_VERSIONS=""
           if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]]; then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
-            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
+            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
@@ -109,10 +109,7 @@ jobs:
           cancel_others: true
           paths_ignore: ${{ inputs.paths_ignore }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v4
-        # To trigger other workflows when running 'git push'
-        with:
-          token: ${{ secrets.GH_TOKEN }}
+        uses: actions/checkout@v5
       - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
         run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
 
@@ -157,11 +154,10 @@ jobs:
           if POETRY=$(poetry --version 2> /dev/null); then
             echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
-            poetry config virtualenvs.prefer-active-python true || true # for poetry v1
           fi
 
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -195,9 +191,6 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Lint & Build
         run: |
-          if grep -q '"gen-code":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run gen-code
-          fi
           if grep -q '"lint-fix":' package.json; then
             ${{ steps.env-info.outputs.runner }} run lint-fix
           elif grep -q '"lint":' package.json; then
@@ -207,24 +200,6 @@ jobs:
             ${{ steps.env-info.outputs.runner }} run build/ci
           elif grep -q '"build":' package.json; then
             ${{ steps.env-info.outputs.runner }} run build
-          fi
-          if git status | grep -q "Changes not staged for commit"; then
-            git status
-            git diff
-            echo "Found changes during gen-code, lint-fix and/or build"
-            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              rm -Rf **/.next
-              git stash
-              git fetch origin ${{ github.head_ref }}
-              git switch ${{ github.head_ref }}
-              git stash pop
-              git config --global user.email "bot@willbooster.com"
-              git config --global user.name "WillBooster Inc."
-              git add -A
-              git commit -m "fix: apply changes by lint-fix and build" -a
-              git push origin ${{ github.head_ref }}
-            fi
-            exit 1
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Test
