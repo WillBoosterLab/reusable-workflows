@@ -8,7 +8,7 @@ on:
         type: string
 
 concurrency:
-  group: fix-${{ github.head_ref }}
+  group: autofix-${{ github.head_ref }}
   cancel-in-progress: true
 
 jobs:
