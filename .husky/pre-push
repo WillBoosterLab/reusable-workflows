@@ -1,1 +1,1 @@
-(sleep 1m && yarn sync) &
+yarn pre-push &

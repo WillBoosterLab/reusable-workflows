@@ -11,6 +11,7 @@
     "postinstall": "husky || true",
     "prepack": "pinst --disable",
     "postpack": "pinst --enable",
+    "pre-push": "sleep 60; yarn sync",
     "prepare": "husky || true",
     "prettify": "prettier --cache --color --write \"**/{.*/,}*.{cjs,css,cts,htm,html,java,js,json,json5,jsonc,jsx,md,mjs,mts,scss,ts,tsx,vue,yaml,yml}\" \"!**/test{-,/}fixtures/**\" || true",
     "sync": "one-way-git-sync -v -i node_modules -i renovate.json -d git@github.com:WillBoosterLab/reusable-workflows.git",
