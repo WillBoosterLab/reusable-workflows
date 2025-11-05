@@ -28,7 +28,7 @@ jobs:
           rm -rf .git
           rm -rf ./*
           rm -rf .[^.]*
-          git init
+          git init --initial-branch=main
           git remote add origin git@github.com:${{ github.repository }}.git
           git fetch origin ${{ github.head_ref || github.ref_name }}
           git checkout ${{ github.head_ref || github.ref_name }}

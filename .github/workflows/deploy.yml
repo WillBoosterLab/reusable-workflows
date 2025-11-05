@@ -125,7 +125,7 @@ jobs:
             fi
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}

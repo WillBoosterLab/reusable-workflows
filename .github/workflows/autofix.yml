@@ -22,7 +22,7 @@ jobs:
           rm -rf .git
           rm -rf ./*
           rm -rf .[^.]*
-          git init
+          git init --initial-branch=main
           git remote add origin git@github.com:${{ github.repository }}.git
           git fetch --depth 1 origin ${{ github.head_ref }}
           git checkout ${{ github.head_ref }}
@@ -36,7 +36,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version }}

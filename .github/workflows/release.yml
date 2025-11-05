@@ -60,8 +60,9 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
+          node-version: '>=24.10.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main

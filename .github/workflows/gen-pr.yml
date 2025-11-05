@@ -124,8 +124,6 @@ jobs:
           fi
       - name: Remove .next directory
         run: rm -Rf .next
-      - name: Run "common/ci-setup" npm script if exists
-        run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
       - name: Run "test/ci-setup" npm script if exists
         run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
       - name: Build
