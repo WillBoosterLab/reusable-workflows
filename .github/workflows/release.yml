@@ -110,7 +110,7 @@ jobs:
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
             ${{ steps.env-info.outputs.runner }} run release
           else
-            ${{ steps.env-info.outputs.runner }} run semantic-release
+            node node_modules/semantic-release/bin/semantic-release.js
           fi
         # Existing GITHUB_TOKEN cannot trigger release (published) event
         # We need to pass a personal token (e.g. secrets.GH_BOT_PAT) to secrets.GH_TOKEN

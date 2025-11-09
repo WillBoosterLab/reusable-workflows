@@ -260,7 +260,7 @@ jobs:
             if grep -q '"release-test":' package.json; then
               ${{ steps.env-info.outputs.runner }} run release-test
             else
-              ${{ steps.env-info.outputs.runner }} run semantic-release --dry-run
+              node node_modules/semantic-release/bin/semantic-release.js --dry-run
             fi
           fi
         env:
