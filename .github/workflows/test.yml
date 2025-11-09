@@ -191,7 +191,12 @@ jobs:
         run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run "test/ci-setup" npm script if exists
-        run: if grep -q '"test/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run test/ci-setup; fi
+        run: |
+          if grep -q '"test/ci-setup":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run test/ci-setup
+          elif grep -q '"playwright"' package.json; then
+            ${{ steps.env-info.outputs.runner }} playwright install
+          fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run "typecheck" npm script if exists
         run: |
