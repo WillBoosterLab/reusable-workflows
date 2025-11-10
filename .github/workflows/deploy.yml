@@ -85,8 +85,7 @@ jobs:
     env:
       FORCE_COLOR: 3
       # constants
-      GCLOUD_VERSION: 466.0.0
-      PYTHON_VERSION: 3.9.17
+      PYTHON_VERSION: 3.13.9
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/credentials.json
       # arguments
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
@@ -147,8 +146,8 @@ jobs:
             fi
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"gcloud"* ]]; then
               asdf plugin add gcloud || true
-              asdf install gcloud $GCLOUD_VERSION
-              asdf set gcloud $GCLOUD_VERSION
+              asdf install gcloud latest
+              asdf set gcloud latest
             fi
       - name: Show environment information
         id: env-info
