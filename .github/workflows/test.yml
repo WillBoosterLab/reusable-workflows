@@ -260,11 +260,13 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' && env.GITHUB_TOKEN != '' && github.event_name == 'pull_request' }}
         name: Test release script
         run: |
-          git switch -C $(jq -r ".branches[0]" .releaserc.json)
-          if grep -q '"release-test":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run release-test
-          else
-            node node_modules/semantic-release/bin/semantic-release.js --dry-run
+          if grep -q '"semantic-release":' package.json; then
+            git switch -C $(jq -r ".branches[0]" .releaserc.json)
+            if grep -q '"release-test":' package.json; then
+              ${{ steps.env-info.outputs.runner }} run release-test
+            else
+              node node_modules/semantic-release/bin/semantic-release.js --dry-run
+            fi
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
