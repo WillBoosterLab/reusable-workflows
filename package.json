@@ -4,14 +4,14 @@
   "license": "UNLICENSED",
   "author": "WillBooster Inc.",
   "scripts": {
-    "check-all-for-ai": "yarn check-for-ai && yarn test --silent",
-    "check-for-ai": "yarn install > /dev/null && yarn format > /dev/null 2> /dev/null || true && yarn lint-fix --quiet && yarn typecheck",
+    "check-all-for-ai": "yarn check-for-ai && yarn test",
+    "check-for-ai": "yarn install > /dev/null && yarn format > /dev/null 2> /dev/null || true",
     "cleanup": "yarn format",
     "format": "sort-package-json && yarn prettify",
     "postinstall": "husky || true",
     "prepack": "pinst --disable",
     "postpack": "pinst --enable",
-    "pre-push": "sleep 60; yarn sync",
+    "pre-push": "echo 'start pre-push'; sleep 60; yarn sync",
     "prepare": "husky || true",
     "prettify": "prettier --cache --color --write \"**/{.*/,}*.{cjs,css,cts,htm,html,java,js,json,json5,jsonc,jsx,md,mjs,mts,scss,ts,tsx,vue,yaml,yml}\" \"!**/test{-,/}fixtures/**\" || true",
     "sync": "one-way-git-sync -v -i node_modules -i renovate.json -d git@github.com:WillBoosterLab/reusable-workflows.git",
@@ -19,14 +19,14 @@
   },
   "prettier": "@willbooster/prettier-config",
   "devDependencies": {
-    "@willbooster/prettier-config": "10.2.1",
+    "@willbooster/prettier-config": "10.2.2",
     "husky": "9.1.7",
-    "lint-staged": "16.2.6",
+    "lint-staged": "16.2.7",
     "one-way-git-sync": "6.0.26",
     "pinst": "3.0.0",
     "prettier": "3.6.2",
     "prettier-plugin-java": "2.7.7",
     "sort-package-json": "3.4.0"
   },
-  "packageManager": "yarn@4.11.0"
+  "packageManager": "yarn@4.12.0"
 }
