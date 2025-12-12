@@ -105,6 +105,7 @@ jobs:
     steps:
       - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
