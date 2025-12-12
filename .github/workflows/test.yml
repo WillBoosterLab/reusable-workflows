@@ -66,7 +66,7 @@ jobs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: check-node
@@ -103,13 +103,14 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json || '[""]') }}
     steps:
-      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+      - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
+        run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
         uses: fkirc/skip-duplicate-actions@master
         with:
           cancel_others: true
           paths_ignore: ${{ inputs.paths_ignore }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && !github.event.repository.private }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event.repository.private }}
         run: |
           if [[ ! -d .git ]]; then

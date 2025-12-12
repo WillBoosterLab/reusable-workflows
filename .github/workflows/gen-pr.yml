@@ -74,7 +74,7 @@ jobs:
       # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}

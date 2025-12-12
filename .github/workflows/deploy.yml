@@ -96,7 +96,9 @@ jobs:
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v5
+      - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
+        run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
