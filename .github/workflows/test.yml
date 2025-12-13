@@ -206,14 +206,6 @@ jobs:
             ${{ steps.env-info.outputs.runner }} playwright install
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        name: Run "typecheck" npm script if exists
-        run: |
-          if grep -q '"typecheck":' package.json; then
-            # Deal with .next errors
-            rm -Rf .next
-            ${{ steps.env-info.outputs.runner }} run typecheck
-          fi
-      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Fix code
         run: |
           if grep -q '"gen-code":' package.json; then
@@ -242,6 +234,15 @@ jobs:
               echo "Found changes during gen-code, cleanup, lint-fix and/or build"
               exit 1
             fi
+          fi
+      # Typecheck must be executed after `gen-code`
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Run "typecheck" npm script if exists
+        run: |
+          if grep -q '"typecheck":' package.json; then
+            # Deal with .next errors
+            rm -Rf .next
+            ${{ steps.env-info.outputs.runner }} run typecheck
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Test
