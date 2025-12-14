@@ -25,6 +25,10 @@ on:
       target_organization:
         required: false
         type: string
+      trigger_deploy_workflow:
+        description: 'Workflow file to trigger after a new release (e.g., deploy-production.yml). Leave empty to disable.'
+        required: false
+        type: string
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
@@ -62,7 +66,7 @@ jobs:
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: '24.11.1'
+          node-version: '24.12.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: willbooster/asdf-actions/install@main
@@ -85,7 +89,7 @@ jobs:
           fi
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -105,6 +109,9 @@ jobs:
       - if: ${{ !inputs.skip_build }}
         name: Build
         run: if [[ "$(cat package.json)" == *'"build":'* ]]; then ${{ steps.env-info.outputs.runner }} run build; fi
+      - name: Get current latest tag
+        id: pre-release-tag
+        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
       - name: Release
         run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
@@ -113,11 +120,8 @@ jobs:
             # Because the latest semantic-release doesn't work on Bun
             node node_modules/semantic-release/bin/semantic-release.js
           fi
-        # Existing GITHUB_TOKEN cannot trigger release (published) event
-        # We need to pass a personal token (e.g. secrets.GH_BOT_PAT) to secrets.GH_TOKEN
-        # c.f. https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           HUSKY: 0
           LEFTHOOK: 0
@@ -131,3 +135,19 @@ jobs:
                   \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }})の最新版 ([$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/$(git describe --always --tags))) をリリースしました。\"
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - if: ${{ inputs.trigger_deploy_workflow }}
+        name: Check for new release tag
+        id: post-release-tag
+        run: |
+          git fetch --tags --force
+          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          if [[ -n "$NEW_TAG" && "$NEW_TAG" != "${{ steps.pre-release-tag.outputs.tag }}" ]]; then
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: ${{ inputs.trigger_deploy_workflow && steps.post-release-tag.outputs.created == 'true' }}
+        name: Trigger deploy workflow
+        run: gh workflow run ${{ inputs.trigger_deploy_workflow }} --ref ${{ steps.post-release-tag.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write + actions:write

@@ -137,7 +137,7 @@ jobs:
             ${{ steps.env-info.outputs.runner }} run build || true
           fi
       - name: Generate PR with LLMs
-        uses: WillBooster/gen-pr@v2
+        uses: WillBooster/gen-pr@v4
         with:
           issue-number: ${{ inputs.issue-number }}
           planning-model: ${{ inputs.planning-model }}

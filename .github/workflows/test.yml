@@ -54,7 +54,7 @@ jobs:
       # GitHub's Branch Protection and Rulesets require job running, so we should not skip entier jobs.
       - if: ${{ !inputs.no_skip }}
         id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
+        uses: fkirc/skip-duplicate-actions@04a1aebece824b56e6ad6a401d015479cd1c50b3
         with:
           cancel_others: false
           skip_after_successful_duplicate: true
@@ -106,7 +106,7 @@ jobs:
       - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: fkirc/skip-duplicate-actions@master
+        uses: fkirc/skip-duplicate-actions@04a1aebece824b56e6ad6a401d015479cd1c50b3
         with:
           cancel_others: true
           paths_ignore: ${{ inputs.paths_ignore }}
@@ -177,7 +177,7 @@ jobs:
           fi
 
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -281,7 +281,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-artifact
           path: ${{ inputs.artifact_path }}

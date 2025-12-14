@@ -70,13 +70,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@willbooster/prettier-config@npm:10.2.2":
-  version: 10.2.2
-  resolution: "@willbooster/prettier-config@npm:10.2.2"
+"@willbooster/prettier-config@npm:10.2.4":
+  version: 10.2.4
+  resolution: "@willbooster/prettier-config@npm:10.2.4"
   peerDependencies:
     prettier: ">=3"
     prettier-plugin-java: ">=2.6"
-  checksum: 10c0/37cf0ec7301b51450747fd65dda7e36971c93f17e64b76927007caf0ea45ba43117b30d98ecd9916e6d38350999c01d63cdf6b35f4400d5e3c449d6123b11e5d
+  checksum: 10c0/0216f838b7c62add1d9a988ee955fa7d0e9f458367203a84151741afa53a77201c2937fa4efa816a962050fff938374160177240eda1ea6fdcca2d8c5f29d3d9
   languageName: node
   linkType: hard
 
@@ -258,10 +258,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-copy@npm:^3.0.2":
-  version: 3.0.2
-  resolution: "fast-copy@npm:3.0.2"
-  checksum: 10c0/02e8b9fd03c8c024d2987760ce126456a0e17470850b51e11a1c3254eed6832e4733ded2d93316c82bc0b36aeb991ad1ff48d1ba95effe7add7c3ab8d8eb554a
+"fast-copy@npm:^4.0.0":
+  version: 4.0.1
+  resolution: "fast-copy@npm:4.0.1"
+  checksum: 10c0/5c0ccddc68cb8f071d7806681f4bb87741cc07ed3153bba49adc456607c6d38854bf921c318feba402442056f7babcdc435052f431f19b2c7c6cbeefe9ae5841
   languageName: node
   linkType: hard
 
@@ -514,19 +514,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"one-way-git-sync@npm:6.0.28":
-  version: 6.0.28
-  resolution: "one-way-git-sync@npm:6.0.28"
+"one-way-git-sync@npm:6.0.30":
+  version: 6.0.30
+  resolution: "one-way-git-sync@npm:6.0.30"
   dependencies:
     fs-extra: "npm:11.3.2"
     micromatch: "npm:4.0.8"
     pino: "npm:10.1.0"
-    pino-pretty: "npm:13.1.2"
+    pino-pretty: "npm:13.1.3"
     simple-git: "npm:3.30.0"
     yargs: "npm:18.0.0"
   bin:
     one-way-git-sync: bin/index.js
-  checksum: 10c0/3a4a99ac8082ce12a259bae096512906fa967623be1824e2ec70c9b5b1aaea4696165ce5d5da0c3b90dd5bfc2000d58749b9aced987f1cd13b735dead3198cd1
+  checksum: 10c0/9ca41a0d506d0d33ec79dae6922900c93f5db38642054f57438df39021a132959a87be3ccc1b818948b85b432d90631aa42b193b7f518375f184d4690d0d4d81
   languageName: node
   linkType: hard
 
@@ -571,26 +571,35 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pino-pretty@npm:13.1.2":
-  version: 13.1.2
-  resolution: "pino-pretty@npm:13.1.2"
+"pino-abstract-transport@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "pino-abstract-transport@npm:3.0.0"
+  dependencies:
+    split2: "npm:^4.0.0"
+  checksum: 10c0/4486e1b9508110aaf963d07741ac98d660b974dd51d8ad42077d215118e27cda20c64da46c07c926898d52540aab7c6b9c37dc0f5355c203bb1d6a72b5bd8d6c
+  languageName: node
+  linkType: hard
+
+"pino-pretty@npm:13.1.3":
+  version: 13.1.3
+  resolution: "pino-pretty@npm:13.1.3"
   dependencies:
     colorette: "npm:^2.0.7"
     dateformat: "npm:^4.6.3"
-    fast-copy: "npm:^3.0.2"
+    fast-copy: "npm:^4.0.0"
     fast-safe-stringify: "npm:^2.1.1"
     help-me: "npm:^5.0.0"
     joycon: "npm:^3.1.1"
     minimist: "npm:^1.2.6"
     on-exit-leak-free: "npm:^2.1.0"
-    pino-abstract-transport: "npm:^2.0.0"
+    pino-abstract-transport: "npm:^3.0.0"
     pump: "npm:^3.0.0"
     secure-json-parse: "npm:^4.0.0"
     sonic-boom: "npm:^4.0.1"
     strip-json-comments: "npm:^5.0.2"
   bin:
     pino-pretty: bin.js
-  checksum: 10c0/4d8e7472e37bdb6e0d6d7d34f25f65ced46c0f64a9579bb805602321caf1c0b10359f89a1ee9742bea875f411a02ce7c19730f7a1e5387dfcfd10ff5c9804709
+  checksum: 10c0/36fa382521a893290c8f6a5b2ddc28dfb87fda1d161adb6b97d80bf7d24184970d0a7eab6f8ee45c39aff4b2ec3b2e533c756899798adc270010f34ba4411063
   languageName: node
   linkType: hard
 
@@ -642,12 +651,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:3.7.3":
-  version: 3.7.3
-  resolution: "prettier@npm:3.7.3"
+"prettier@npm:3.7.4":
+  version: 3.7.4
+  resolution: "prettier@npm:3.7.4"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/ee86bb06121c74dadc54f30b6f99aff6288966d9b842ce501d6991e20d20c6ce2d45028651b3b0955ca6e5fa89c1bee1e72b6f810243a93cef8bc69737972ef7
+  checksum: 10c0/9675d2cd08eacb1faf1d1a2dbfe24bfab6a912b059fc9defdb380a408893d88213e794a40a2700bd29b140eb3172e0b07c852853f6e22f16f3374659a1a13389
   languageName: node
   linkType: hard
 
@@ -696,12 +705,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "reusable-workflows@workspace:."
   dependencies:
-    "@willbooster/prettier-config": "npm:10.2.2"
+    "@willbooster/prettier-config": "npm:10.2.4"
     husky: "npm:9.1.7"
     lint-staged: "npm:16.2.7"
-    one-way-git-sync: "npm:6.0.28"
+    one-way-git-sync: "npm:6.0.30"
     pinst: "npm:3.0.0"
-    prettier: "npm:3.7.3"
+    prettier: "npm:3.7.4"
     prettier-plugin-java: "npm:2.7.7"
     sort-package-json: "npm:3.5.0"
   languageName: unknown

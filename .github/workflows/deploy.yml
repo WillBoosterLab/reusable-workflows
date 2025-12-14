@@ -133,7 +133,7 @@ jobs:
         uses: willbooster/asdf-actions/install@main
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with asdf
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
         with:
           timeout_minutes: 15
           max_attempts: 3
@@ -190,7 +190,7 @@ jobs:
           echo ${VERSION}
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules
@@ -201,7 +201,7 @@ jobs:
 
       - if: ${{ env.HAS_FLY_API_TOKEN == 'true' }}
         name: Install fly
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
         with:
           timeout_minutes: 10
           max_attempts: 5
@@ -230,7 +230,7 @@ jobs:
         run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
 
       - name: Deploy
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
         with:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
