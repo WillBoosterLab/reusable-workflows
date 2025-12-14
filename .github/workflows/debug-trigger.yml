@@ -1,0 +1,16 @@
+name: Debug Trigger Workflow
+
+on:
+  workflow_call:
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy-production workflow
+        run: gh workflow run deploy-production.yml --ref v1.14.18
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
