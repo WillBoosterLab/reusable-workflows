@@ -149,7 +149,7 @@ jobs:
           check-latest: true
           node-version: ${{ matrix.node-version || 22 }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
-        uses: willbooster/asdf-actions/install@main
+        uses: jdx/mise-action@v2
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info

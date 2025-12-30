@@ -130,26 +130,21 @@ jobs:
         with:
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: willbooster/asdf-actions/install@main
+        uses: jdx/mise-action@v2
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
-        name: Install gcloud with asdf
+        name: Install gcloud with mise
         uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
         with:
           timeout_minutes: 15
           max_attempts: 3
           command: |
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
-              asdf plugin add python || true
-              asdf set python $PYTHON_VERSION || true
               : # Deal with incomplete python installation
-              python --version || asdf uninstall python $PYTHON_VERSION
-              asdf install python $PYTHON_VERSION
-              asdf set python $PYTHON_VERSION
+              python --version || mise uninstall python@$PYTHON_VERSION
+              mise use python@$PYTHON_VERSION
             fi
             if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"gcloud"* ]]; then
-              asdf plugin add gcloud || true
-              asdf install gcloud latest
-              asdf set gcloud latest
+              mise use gcloud@latest
             fi
       - name: Show environment information
         id: env-info
