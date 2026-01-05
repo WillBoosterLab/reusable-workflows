@@ -96,7 +96,7 @@ jobs:
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
+      - if: ${{ contains(runner.labels, 'self-hosted') }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
       - uses: actions/checkout@v6
         with:
