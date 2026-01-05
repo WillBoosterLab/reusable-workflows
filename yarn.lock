@@ -293,14 +293,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fs-extra@npm:11.3.2":
-  version: 11.3.2
-  resolution: "fs-extra@npm:11.3.2"
+"fs-extra@npm:11.3.3":
+  version: 11.3.3
+  resolution: "fs-extra@npm:11.3.3"
   dependencies:
     graceful-fs: "npm:^4.2.0"
     jsonfile: "npm:^6.0.1"
     universalify: "npm:^2.0.0"
-  checksum: 10c0/f5d629e1bb646d5dedb4d8b24c5aad3deb8cc1d5438979d6f237146cd10e113b49a949ae1b54212c2fbc98e2d0995f38009a9a1d0520f0287943335e65fe919b
+  checksum: 10c0/984924ff4104e3e9f351b658a864bf3b354b2c90429f57aec0acd12d92c4e6b762cbacacdffb4e745b280adce882e1f980c485d9f02c453f769ab4e7fc646ce3
   languageName: node
   linkType: hard
 
@@ -521,11 +521,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"one-way-git-sync@npm:6.0.30":
-  version: 6.0.30
-  resolution: "one-way-git-sync@npm:6.0.30"
+"one-way-git-sync@npm:6.0.31":
+  version: 6.0.31
+  resolution: "one-way-git-sync@npm:6.0.31"
   dependencies:
-    fs-extra: "npm:11.3.2"
+    fs-extra: "npm:11.3.3"
     micromatch: "npm:4.0.8"
     pino: "npm:10.1.0"
     pino-pretty: "npm:13.1.3"
@@ -533,7 +533,7 @@ __metadata:
     yargs: "npm:18.0.0"
   bin:
     one-way-git-sync: bin/index.js
-  checksum: 10c0/9ca41a0d506d0d33ec79dae6922900c93f5db38642054f57438df39021a132959a87be3ccc1b818948b85b432d90631aa42b193b7f518375f184d4690d0d4d81
+  checksum: 10c0/7f3f20ba32c940a6f936a85eeab4535bb794caf7dbdd7d90373d80a0838cdd354ed024103d8cf71e6e8aa25ab13244705f6cedefaddee05606c62238f80a5070
   languageName: node
   linkType: hard
 
@@ -715,7 +715,7 @@ __metadata:
     "@willbooster/prettier-config": "npm:10.2.4"
     husky: "npm:9.1.7"
     lint-staged: "npm:16.2.7"
-    one-way-git-sync: "npm:6.0.30"
+    one-way-git-sync: "npm:6.0.31"
     pinst: "npm:3.0.0"
     prettier: "npm:3.7.4"
     prettier-plugin-java: "npm:2.7.7"

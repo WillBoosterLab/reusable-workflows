@@ -22,7 +22,7 @@
     "@willbooster/prettier-config": "10.2.4",
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
-    "one-way-git-sync": "6.0.30",
+    "one-way-git-sync": "6.0.31",
     "pinst": "3.0.0",
     "prettier": "3.7.4",
     "prettier-plugin-java": "2.7.7",

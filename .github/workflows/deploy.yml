@@ -130,7 +130,7 @@ jobs:
         with:
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with mise
         uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68

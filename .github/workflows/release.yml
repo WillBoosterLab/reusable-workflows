@@ -69,7 +69,7 @@ jobs:
           node-version: '24.12.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
