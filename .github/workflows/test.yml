@@ -151,7 +151,7 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v3
         with:
-          cache: false
+          cache: ${{ !contains(runner.labels, 'self-hosted') }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info
