@@ -13,3 +13,4 @@ jobs:
       - run: |
           pwd
           ls -al
+          echo "${{ !contains(runner.labels, 'self-hosted') }}"
