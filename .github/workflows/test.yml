@@ -151,7 +151,7 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v3
         with:
-          cache: ${{ !github.event.repository.private || inputs.github_hosted_runner }}
+          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info

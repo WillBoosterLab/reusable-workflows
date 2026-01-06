@@ -42,7 +42,7 @@ jobs:
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v3
         with:
-          cache: ${{ !github.event.repository.private || inputs.github_hosted_runner }}
+          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212

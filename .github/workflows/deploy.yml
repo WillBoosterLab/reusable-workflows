@@ -132,7 +132,7 @@ jobs:
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
         uses: jdx/mise-action@v3
         with:
-          cache: ${{ !github.event.repository.private || inputs.github_hosted_runner }}
+          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with mise
         uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
