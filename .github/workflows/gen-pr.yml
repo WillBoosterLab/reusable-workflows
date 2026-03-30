@@ -83,16 +83,22 @@ jobs:
       - name: Check version files
         id: check-ver
         run: |
-          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+          if [[ -f .tool-versions || -f mise.toml || -f .node-version || -f .python-version ]]; then
             echo "exist-any-version=1" >> $GITHUB_OUTPUT
           fi
-          if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
+          if [[ -f .node-version ]] || \
+             ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) || \
+             ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
-      - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v3
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
+        uses: actions/setup-node@v6
         with:
-          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
+          check-latest: true
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: jdx/mise-action@v4
+        with:
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
@@ -101,7 +107,9 @@ jobs:
           echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+          if [[ -f bunfig.toml ]] && \
+             (([[ -f .tool-versions ]] && grep -qE '^bun[[:space:]]' .tool-versions) || \
+              ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml)); then
             echo "bun: $(bun -v)"
             echo "runner=bun" >> $GITHUB_OUTPUT
           else

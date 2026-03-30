@@ -67,11 +67,14 @@ jobs:
     steps:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: actions/checkout@v6
-      # We need Node.js only if `grep -q nodejs .tool-versions && [[ ! -f .node-version ]]`
+      # We need Node.js only if no version is declared in mise-managed files and no .node-version exists.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: check-node
         run: |
-          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]] && ([[ ! $(node --version) ]] || [[ ! $(npx --version) ]]); then
+          if [[ ! -f .node-version ]] && \
+             ! ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) && \
+             ! ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml) && \
+             (! command -v node > /dev/null || ! command -v npx > /dev/null); then
             echo "require-node-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
@@ -80,10 +83,12 @@ jobs:
           check-latest: true
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: detect-node-version-matrix
-        # We must use actions/setup-node if no Node.js description exists in .tool-versions and no .node-version exists
+        # We must use actions/setup-node if no Node.js description exists in mise-managed files and no .node-version exists.
         run: |
           NODE_VERSIONS=""
-          if ! grep -q "node" .tool-versions && [[ ! -f .node-version ]]; then
+          if [[ ! -f .node-version ]] && \
+             ! ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) && \
+             ! ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
             NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
@@ -103,7 +108,7 @@ jobs:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
         node-version: ${{ fromJson(needs.detect-node-version-matrix.outputs.json || '[""]') }}
     steps:
-      - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
+      - if: ${{ runner.environment == 'self-hosted' }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: fkirc/skip-duplicate-actions@04a1aebece824b56e6ad6a401d015479cd1c50b3
@@ -137,10 +142,12 @@ jobs:
         name: Check version files
         id: check-ver
         run: |
-          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+          if [[ -f .tool-versions || -f mise.toml || -f .node-version || -f .python-version ]]; then
             echo "exist-any-version=1" >> $GITHUB_OUTPUT
           fi
-          if [[ -f .node-version ]] || grep -q nodejs .tool-versions; then
+          if [[ -f .node-version ]] || \
+             ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) || \
+             ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' && !steps.check-ver.outputs.exist-nodejs-version }}
@@ -149,9 +156,9 @@ jobs:
           check-latest: true
           node-version: ${{ matrix.node-version || 22 }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v4
         with:
-          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info
@@ -161,7 +168,9 @@ jobs:
           echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+          if [[ -f bunfig.toml ]] && \
+             (([[ -f .tool-versions ]] && grep -qE '^bun[[:space:]]' .tool-versions) || \
+              ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml)); then
             echo "bun: $(bun -v)"
             echo "runner=bun" >> $GITHUB_OUTPUT
           else
@@ -283,7 +292,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-artifact
           path: ${{ inputs.artifact_path }}

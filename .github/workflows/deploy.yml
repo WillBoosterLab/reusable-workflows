@@ -96,7 +96,7 @@ jobs:
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      - if: ${{ github.event.repository.private && !inputs.github_hosted_runner }}
+      - if: ${{ runner.environment == 'self-hosted' }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
       - uses: actions/checkout@v6
         with:
@@ -111,10 +111,12 @@ jobs:
       - name: Check version files
         id: check-ver
         run: |
-          if [[ -f .tool-versions || -f .node-version || -f .python-version ]]; then
+          if [[ -f .tool-versions || -f mise.toml || -f .node-version || -f .python-version ]]; then
             echo "exist-any-version=1" >> $GITHUB_OUTPUT
           fi
-          if [[ -f .node-version || "$(cat .tool-versions)" == *'nodejs'* ]]; then
+          if [[ -f .node-version ]] || \
+             ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) || \
+             ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - name: Check gcloud is required
@@ -130,22 +132,24 @@ jobs:
         with:
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v4
         with:
-          cache: ${{ (!github.event.repository.private || inputs.github_hosted_runner) && 'true' || 'false' }}
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
         name: Install gcloud with mise
-        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
+        uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
         with:
           timeout_minutes: 15
           max_attempts: 3
           command: |
-            if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"python"* ]]; then
+            if ! (([[ -f .tool-versions ]] && grep -qE '^python[[:space:]]' .tool-versions) || \
+                  ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*python[[:space:]]*=' mise.toml)); then
               : # Deal with incomplete python installation
               python --version || mise uninstall python@$PYTHON_VERSION
               mise use python@$PYTHON_VERSION
             fi
-            if [[ ! -f .tool-versions ]] || [[ "$(cat .tool-versions)" != *"gcloud"* ]]; then
+            if ! (([[ -f .tool-versions ]] && grep -qE '^gcloud[[:space:]]' .tool-versions) || \
+                  ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*gcloud[[:space:]]*=' mise.toml)); then
               mise use gcloud@latest
             fi
       - name: Show environment information
@@ -155,7 +159,9 @@ jobs:
           echo "WB_ENV: $WB_ENV"
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          if [[ -f bunfig.toml ]] && grep -q bun .tool-versions; then
+          if [[ -f bunfig.toml ]] && \
+             (([[ -f .tool-versions ]] && grep -qE '^bun[[:space:]]' .tool-versions) || \
+              ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml)); then
             echo "bun: $(bun -v)"
             echo "runner=bun" >> $GITHUB_OUTPUT
           else
@@ -198,7 +204,7 @@ jobs:
 
       - if: ${{ env.HAS_FLY_API_TOKEN == 'true' }}
         name: Install fly
-        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
+        uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
         with:
           timeout_minutes: 10
           max_attempts: 5
@@ -227,7 +233,7 @@ jobs:
         run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
 
       - name: Deploy
-        uses: nick-fields/retry@9417ab499314dfe692edb043ded2ff9b3f5f0a68
+        uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
         with:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
