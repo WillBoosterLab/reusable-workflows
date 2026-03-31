@@ -246,6 +246,8 @@ jobs:
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          # Railway CLI v4.35.0 rejects RAILWAY_PROJECT_ID without an accompanying environment selector.
+          RAILWAY_ENVIRONMENT_ID: ${{ inputs.environment }}
           RAILWAY_PROJECT_ID: ${{ inputs.railway_project_id }}
           RAILWAY_SERVICE_ID: ${{ inputs.railway_service_id }}
 
