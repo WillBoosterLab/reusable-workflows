@@ -1,0 +1,116 @@
+name: Create GitHub Issues from Sentry Errors
+
+on:
+  workflow_call:
+    inputs:
+      sentry_organization:
+        description: Sentry organization slug
+        required: true
+        type: string
+      sentry_project:
+        description: Sentry project slug
+        required: true
+        type: string
+      sentry_query:
+        description: 'Sentry search query (default: unresolved issues from last 24h)'
+        required: false
+        type: string
+        default: 'is:unresolved'
+      sentry_environment:
+        description: Sentry environment to filter by (e.g., production, staging)
+        required: false
+        type: string
+      issue_label:
+        description: Label to add to created GitHub issues
+        required: false
+        type: string
+        default: 'sentry'
+      target_organization:
+        required: false
+        type: string
+    secrets:
+      SENTRY_AUTH_TOKEN:
+        required: true
+      GH_TOKEN:
+        required: true
+
+jobs:
+  create-issues:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Sentry issues and create GitHub issues
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ inputs.sentry_organization }}
+          SENTRY_PROJECT: ${{ inputs.sentry_project }}
+          SENTRY_QUERY: ${{ inputs.sentry_query }}
+          SENTRY_ENV: ${{ inputs.sentry_environment }}
+          ISSUE_LABEL: ${{ inputs.issue_label }}
+        run: |
+          set -euo pipefail
+
+          # Build Sentry API URL
+          api_url="https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/issues/?query=$(printf '%s' "$SENTRY_QUERY" | jq -sRr @uri)"
+          if [[ -n "$SENTRY_ENV" ]]; then
+            api_url="${api_url}&environment=${SENTRY_ENV}"
+          fi
+
+          echo "Fetching Sentry issues..." >&2
+          sentry_issues=$(curl -sf -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" "$api_url")
+
+          issue_count=$(echo "$sentry_issues" | jq 'length')
+          echo "Found ${issue_count} Sentry issue(s)" >&2
+
+          if [[ "$issue_count" -eq 0 ]]; then
+            echo "No Sentry issues found. Exiting." >&2
+            exit 0
+          fi
+
+          # Ensure the label exists
+          gh label create "$ISSUE_LABEL" --color "e11d48" --description "Auto-created from Sentry errors" 2>/dev/null || true
+
+          # Fetch existing GitHub issues with the sentry label to check for duplicates
+          existing_issues=$(gh issue list --label "$ISSUE_LABEL" --state all --limit 1000 --json body)
+
+          echo "$sentry_issues" | jq -c '.[]' | while read -r sentry_issue; do
+            sentry_id=$(echo "$sentry_issue" | jq -r '.id')
+            sentry_title=$(echo "$sentry_issue" | jq -r '.title')
+            sentry_culprit=$(echo "$sentry_issue" | jq -r '.culprit // ""')
+            sentry_link=$(echo "$sentry_issue" | jq -r '.permalink')
+            sentry_level=$(echo "$sentry_issue" | jq -r '.level // "error"')
+            sentry_count=$(echo "$sentry_issue" | jq -r '.count // "0"')
+            sentry_first_seen=$(echo "$sentry_issue" | jq -r '.firstSeen // ""')
+            sentry_last_seen=$(echo "$sentry_issue" | jq -r '.lastSeen // ""')
+
+            # Check for duplicate by searching for the Sentry issue ID marker in existing issue bodies
+            marker="<!-- sentry-id:${sentry_id} -->"
+            is_duplicate=$(echo "$existing_issues" | jq -r --arg marker "$marker" '[.[] | select(.body | contains($marker))] | length')
+
+            if [[ "$is_duplicate" -gt 0 ]]; then
+              echo "Skipping Sentry issue ${sentry_id} (${sentry_title}): GitHub issue already exists" >&2
+              continue
+            fi
+
+            echo "Creating GitHub issue for Sentry issue ${sentry_id}: ${sentry_title}" >&2
+
+            body="${marker}
+          ## Sentry Error
+
+          | Field | Value |
+          |-------|-------|
+          | **Level** | ${sentry_level} |
+          | **Culprit** | \`${sentry_culprit}\` |
+          | **Events** | ${sentry_count} |
+          | **First seen** | ${sentry_first_seen} |
+          | **Last seen** | ${sentry_last_seen} |
+          | **Sentry link** | ${sentry_link} |"
+
+            gh issue create \
+              --title "[Sentry] ${sentry_title}" \
+              --body "$body" \
+              --label "$ISSUE_LABEL"
+          done
+
+          echo "Done." >&2
