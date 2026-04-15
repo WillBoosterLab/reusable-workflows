@@ -75,6 +75,8 @@ on:
         required: false
       GH_TOKEN:
         required: false
+      GH_PKG_READ_TOKEN:
+        required: false
       RAILWAY_API_TOKEN:
         required: false
 
@@ -131,6 +133,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           check-latest: true
+          node-version: lts/*
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
         uses: jdx/mise-action@v4
         with:
@@ -224,6 +227,8 @@ jobs:
           else
             ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
           fi
+        env:
+          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
 
       - if: ${{ env.HAS_GCP_SA_KEY_JSON_FOR_FIREBASE == 'true' }}
         name: Create credential file for Firebase

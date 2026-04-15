@@ -39,6 +39,8 @@ on:
     secrets:
       DOT_ENV:
         required: false
+      GH_PKG_READ_TOKEN:
+        required: false
       GH_TOKEN:
         required: true
       NPM_TOKEN:
@@ -81,6 +83,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           check-latest: true
+          node-version: lts/*
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in mise-managed files and no .node-version exists.
@@ -154,7 +157,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           check-latest: true
-          node-version: ${{ matrix.node-version || 22 }}
+          node-version: ${{ matrix.node-version || 'lts/*' }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v4
         with:
@@ -205,6 +208,8 @@ jobs:
           else
             ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
           fi
+        env:
+          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run "common/ci-setup" npm script if exists
         run: if grep -q '"common/ci-setup":' package.json; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi

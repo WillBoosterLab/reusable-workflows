@@ -6,6 +6,9 @@ on:
       target_organization:
         required: false
         type: string
+    secrets:
+      GH_PKG_READ_TOKEN:
+        required: false
 
 concurrency:
   group: autofix-${{ github.head_ref }}
@@ -41,6 +44,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           check-latest: true
+          node-version: lts/*
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v4
         with:
@@ -70,6 +74,8 @@ jobs:
           else
             ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
           fi
+        env:
+          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
 
       - name: Fix code
         run: |

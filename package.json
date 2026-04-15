@@ -19,10 +19,10 @@
   },
   "prettier": "@willbooster/prettier-config",
   "devDependencies": {
-    "@willbooster/prettier-config": "10.2.4",
+    "@willbooster/prettier-config": "10.4.0",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "one-way-git-sync": "6.0.40",
+    "one-way-git-sync": "6.0.41",
     "pinst": "3.0.0",
     "prettier": "3.8.1",
     "prettier-plugin-java": "2.8.1",
