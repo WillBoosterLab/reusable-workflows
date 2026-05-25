@@ -191,10 +191,9 @@ function postRequest(requestPath) {
     [
       '--fail-with-body',
       '--max-time',
-      '60',
+      '120',
       '--retry',
       String(PkgPreflightRetryAttempts),
-      '--retry-all-errors',
       '--retry-delay',
       String(PkgPreflightRetryDelaySeconds),
       '--show-error',
