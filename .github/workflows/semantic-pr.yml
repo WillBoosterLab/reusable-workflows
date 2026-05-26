@@ -14,7 +14,7 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      - uses: amannn/action-semantic-pull-request@ac7e3fc035c47465748bbcb1a822c1583cf79bbc
+      - uses: amannn/action-semantic-pull-request@45b9ed7cf24087a2f7785bf55be97394ba87e1c2
         with:
           wip: true
         env:
