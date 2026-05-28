@@ -45,6 +45,12 @@ jobs:
         with:
           check-latest: true
           node-version: lts/*
+      - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
+        name: Setup isolated GPG home
+        run: |
+          GNUPGHOME="$(mktemp -d "$RUNNER_TEMP/gnupg.XXXXXX")"
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
         uses: jdx/mise-action@v4
         with:
