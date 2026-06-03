@@ -305,11 +305,11 @@ jobs:
         name: Test release script
         run: |
           if grep -q '"semantic-release":' package.json; then
-            git switch -C $(jq -r ".branches[0]" .releaserc.json)
+            git switch -C "$(jq -r ".branches[0]" .releaserc.json)"
             if grep -q '"release-test":' package.json; then
               ${{ steps.env-info.outputs.runner }} run release-test
             else
-              node node_modules/semantic-release/bin/semantic-release.js --dry-run
+              ${{ steps.env-info.outputs.runner }} semantic-release --dry-run
             fi
           fi
         env:
