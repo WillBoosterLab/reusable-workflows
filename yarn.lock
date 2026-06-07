@@ -333,21 +333,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lint-staged@npm:17.0.5":
-  version: 17.0.5
-  resolution: "lint-staged@npm:17.0.5"
+"lint-staged@npm:17.0.7":
+  version: 17.0.7
+  resolution: "lint-staged@npm:17.0.7"
   dependencies:
     listr2: "npm:^10.2.1"
     picomatch: "npm:^4.0.4"
     string-argv: "npm:^0.3.2"
-    tinyexec: "npm:^1.1.2"
-    yaml: "npm:^2.8.4"
+    tinyexec: "npm:^1.2.4"
+    yaml: "npm:^2.9.0"
   dependenciesMeta:
     yaml:
       optional: true
   bin:
     lint-staged: bin/lint-staged.js
-  checksum: 10c0/6ecf2024744147ea768dbd550c0c47f04b295f07d30e5ecb5e375c18d8fc24d4bfa897042f4aabd7c3510054ad5bbbb51fa36e60e8dca853e31f9876ef9a3726
+  checksum: 10c0/c4e7100becb327d817999a231b8d345e6be389c555d9cd8d668797d2670832ad15c4e5085b61895e3fbf937f0fbd6be5c78ca76a4599ed332227f37270ebe8eb
   languageName: node
   linkType: hard
 
@@ -532,14 +532,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier-plugin-java@npm:2.9.4":
-  version: 2.9.4
-  resolution: "prettier-plugin-java@npm:2.9.4"
+"prettier-plugin-java@npm:2.9.7":
+  version: 2.9.7
+  resolution: "prettier-plugin-java@npm:2.9.7"
   dependencies:
-    web-tree-sitter: "npm:0.26.8"
+    web-tree-sitter: "npm:0.26.9"
   peerDependencies:
     prettier: ^3.0.0
-  checksum: 10c0/114080145a4ea889e083e020941d4274e1033e48bcdd1f5daf157195d42bcf8fae90db04c8abfd5801163ad2c9c7861178d314ce970e772aeb811395e1019d33
+  checksum: 10c0/2394746eb78f88d211e2ec4530d485142551c5db47cd4143f25887efe9815dd449488fecc3b64186c2424c142bbff33fd272bbf09178b5b3d165e767e13a38c0
   languageName: node
   linkType: hard
 
@@ -606,11 +606,11 @@ __metadata:
   dependencies:
     "@willbooster/prettier-config": "npm:10.4.0"
     husky: "npm:9.1.7"
-    lint-staged: "npm:17.0.5"
+    lint-staged: "npm:17.0.7"
     one-way-git-sync: "npm:6.0.43"
     pinst: "npm:3.0.0"
     prettier: "npm:3.8.3"
-    prettier-plugin-java: "npm:2.9.4"
+    prettier-plugin-java: "npm:2.9.7"
     sort-package-json: "npm:3.6.1"
   languageName: unknown
   linkType: soft
@@ -778,10 +778,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tinyexec@npm:^1.1.2":
-  version: 1.1.2
-  resolution: "tinyexec@npm:1.1.2"
-  checksum: 10c0/9e0ef6c001ce54688cf16833a02f70a339276219ca947b88930b124267de2cffc764ff44e87e7369384b1d75ab63491465412cbbdf06f2437956b9ab66ab4491
+"tinyexec@npm:^1.2.4":
+  version: 1.2.4
+  resolution: "tinyexec@npm:1.2.4"
+  checksum: 10c0/153b8db6b080194b558ff145b9cffc36b80a6e07babd644dcfbe49c807eee668c876049d28bdee90b96304476f883352f2dad91b3f86bc23832532f4363e66ff
   languageName: node
   linkType: hard
 
@@ -811,10 +811,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"web-tree-sitter@npm:0.26.8":
-  version: 0.26.8
-  resolution: "web-tree-sitter@npm:0.26.8"
-  checksum: 10c0/6382099fc8495dc6a464c532852b375ee05b8b3cc68682a8cddf7ba751c08088cd6ec5a34f6a752428fea6d8d6e29a9d281d6068adbc0831a29561c33cd1630f
+"web-tree-sitter@npm:0.26.9":
+  version: 0.26.9
+  resolution: "web-tree-sitter@npm:0.26.9"
+  checksum: 10c0/7df36536f65384a08c78d98836d163f74635167b55d8f2c86b1404f4915238d1369cb0ce88f5fb5d78fd81ad5898a0b02aec0cda8bd77f19311781aa989962a5
   languageName: node
   linkType: hard
 
@@ -854,7 +854,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yaml@npm:^2.8.4":
+"yaml@npm:^2.9.0":
   version: 2.9.0
   resolution: "yaml@npm:2.9.0"
   bin:

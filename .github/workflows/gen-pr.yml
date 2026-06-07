@@ -76,7 +76,7 @@ jobs:
       # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
         with:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -94,7 +94,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.4.0
         with:
           check-latest: true
           node-version: lts/*
@@ -105,7 +105,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v4.1.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Show environment information
@@ -158,7 +158,7 @@ jobs:
             ${{ steps.env-info.outputs.runner }} run build || true
           fi
       - name: Generate PR with LLMs
-        uses: WillBooster/gen-pr@v4
+        uses: WillBooster/gen-pr@v4.1.15
         with:
           issue-number: ${{ inputs.issue-number }}
           planning-model: ${{ inputs.planning-model }}
