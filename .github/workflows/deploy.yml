@@ -249,9 +249,70 @@ jobs:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
+            cancel_railway_deployment() {
+              local deployment_id="$1"
+              curl -fsS https://backboard.railway.com/graphql/v2 \
+                -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "{\"query\":\"mutation CancelDeployment(\\$id: String!) { deploymentCancel(id: \\$id) }\",\"variables\":{\"id\":\"$deployment_id\"}}" > /dev/null
+            }
+
+            wait_for_railway_deployment() {
+              local deployment_id="$1"
+              for attempt in $(seq 1 600); do
+                deployments_json="$(${{ steps.env-info.outputs.runner }} railway deployment list --service "$RAILWAY_SERVICE_ID" --environment "$WB_ENV" --limit 20 --json 2> /dev/null || echo "[]")"
+                deployment_status="$(
+                  DEPLOYMENTS_JSON="$deployments_json" RAILWAY_DEPLOYMENT_ID="$deployment_id" node -e 'const deployments = JSON.parse(process.env.DEPLOYMENTS_JSON || "[]"); console.log(deployments.find((deployment) => deployment.id === process.env.RAILWAY_DEPLOYMENT_ID)?.status || "")'
+                )"
+                echo "Railway deployment $deployment_id status: ${deployment_status:-UNKNOWN} ($attempt/600)"
+                case "$deployment_status" in
+                  SUCCESS | SLEEPING)
+                    return 0
+                    ;;
+                  FAILED | CRASHED | REMOVED)
+                    return 1
+                    ;;
+                esac
+                sleep 5
+              done
+
+              echo "Timed out waiting for Railway deployment $deployment_id." >&2
+              return 1
+            }
+
             : # GCP_SA_KEY_JSON may be used in deploy/ci-setup
             if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run deploy/ci-setup; fi
-            ${{ steps.env-info.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
+            deploy_log="$(mktemp)"
+            set +e
+            ${{ steps.env-info.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }} 2>&1 | tee "$deploy_log"
+            deploy_status=${PIPESTATUS[0]}
+            set -e
+            if [[ "$deploy_status" == "0" ]]; then
+              exit 0
+            fi
+
+            if [[ "$HAS_RAILWAY_API_TOKEN" != "true" ]] || \
+               [[ -z "$RAILWAY_PROJECT_ID" ]] || \
+               [[ -z "$RAILWAY_SERVICE_ID" ]] || \
+               ! grep -q 'Failed to stream build logs: Failed to retrieve build log' "$deploy_log"; then
+              exit "$deploy_status"
+            fi
+
+            echo "::warning::Railway CLI failed while streaming build logs; retrying the same upload in detached mode and waiting for Railway status."
+            railway_deployment_id="$(sed -n 's/.*[?&]id=\([0-9a-f-]*\).*/\1/p' "$deploy_log" | tail -n 1)"
+            if [[ -n "$railway_deployment_id" ]]; then
+              cancel_railway_deployment "$railway_deployment_id" || true
+            fi
+
+            deploy_output="$(${{ steps.env-info.outputs.runner }} railway up --detach --json --project="$RAILWAY_PROJECT_ID" --service="$RAILWAY_SERVICE_ID" --environment="$WB_ENV")"
+            echo "$deploy_output"
+            railway_deployment_id="$(DEPLOY_OUTPUT="$deploy_output" node -e 'const output = JSON.parse(process.env.DEPLOY_OUTPUT || "{}"); console.log(output.deploymentId || output.id || output.deployment?.id || "")')"
+            if [[ -z "$railway_deployment_id" ]]; then
+              echo "Failed to parse Railway deployment ID." >&2
+              exit "$deploy_status"
+            fi
+
+            wait_for_railway_deployment "$railway_deployment_id"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
