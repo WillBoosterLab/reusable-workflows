@@ -133,6 +133,7 @@ function listPullRequestChangedFiles({ pullRequestNumber, repository, token }) {
 function listGitChangedFiles() {
   const records = execFileSync('git', ['diff', '-z', '--name-status', '--diff-filter=AMR', 'FETCH_HEAD'], {
     encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
   })
     .split('\0')
     .filter(Boolean);
