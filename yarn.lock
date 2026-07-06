@@ -333,9 +333,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lint-staged@npm:17.0.7":
-  version: 17.0.7
-  resolution: "lint-staged@npm:17.0.7"
+"lint-staged@npm:17.0.8":
+  version: 17.0.8
+  resolution: "lint-staged@npm:17.0.8"
   dependencies:
     listr2: "npm:^10.2.1"
     picomatch: "npm:^4.0.4"
@@ -347,7 +347,7 @@ __metadata:
       optional: true
   bin:
     lint-staged: bin/lint-staged.js
-  checksum: 10c0/c4e7100becb327d817999a231b8d345e6be389c555d9cd8d668797d2670832ad15c4e5085b61895e3fbf937f0fbd6be5c78ca76a4599ed332227f37270ebe8eb
+  checksum: 10c0/8f5692a6777de3e71b4a32a944ac3c756bb3f15a886f54d46d71d0a1694b3e3caf1b2ea207bdb20c9b730661e0aedd68b6c1d1c6ab5d5012be64e9cd820b7c87
   languageName: node
   linkType: hard
 
@@ -543,12 +543,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:3.8.3":
-  version: 3.8.3
-  resolution: "prettier@npm:3.8.3"
+"prettier@npm:3.8.4":
+  version: 3.8.4
+  resolution: "prettier@npm:3.8.4"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/754816fd7593eb80f6376d7476d463e832c38a12f32775a82683adb6e35b772b1f484d65f19401507b983a8c8a7cd5a4a9f12006bd56491e8f35503473f77473
+  checksum: 10c0/b90a0cbe75b88ac0af9c13fe0f359bd19926fabccd88483227b21f71f0c1cc42da056fc1ac3a361e665577c568371d5ccfb2c62c31c8a1186f8d1bd531a063e9
   languageName: node
   linkType: hard
 
@@ -606,12 +606,12 @@ __metadata:
   dependencies:
     "@willbooster/prettier-config": "npm:10.4.0"
     husky: "npm:9.1.7"
-    lint-staged: "npm:17.0.7"
+    lint-staged: "npm:17.0.8"
     one-way-git-sync: "npm:6.0.43"
     pinst: "npm:3.0.0"
-    prettier: "npm:3.8.3"
+    prettier: "npm:3.8.4"
     prettier-plugin-java: "npm:2.9.7"
-    sort-package-json: "npm:3.6.1"
+    sort-package-json: "npm:4.0.0"
   languageName: unknown
   linkType: soft
 
@@ -637,11 +637,11 @@ __metadata:
   linkType: hard
 
 "semver@npm:^7.7.3":
-  version: 7.8.0
-  resolution: "semver@npm:7.8.0"
+  version: 7.8.4
+  resolution: "semver@npm:7.8.4"
   bin:
     semver: bin/semver.js
-  checksum: 10c0/8f096ca9b80ffd47b308d03f9ce8c873e27e2983f36023c559cdc92c51e8433fc23ebbfe57ec9623fc155636a6961ee989501099841ae4bb1babc8d2b3f048cd
+  checksum: 10c0/81b7c296fd7927b80f67fa516b75fa1017caac8167795320de28e76ccbc6f7f01763c30ecd10d6a0d8fd089708ab0548a5aebb94b0870e99c2a2b4600a46389b
   languageName: node
   linkType: hard
 
@@ -701,9 +701,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sort-package-json@npm:3.6.1":
-  version: 3.6.1
-  resolution: "sort-package-json@npm:3.6.1"
+"sort-package-json@npm:4.0.0":
+  version: 4.0.0
+  resolution: "sort-package-json@npm:4.0.0"
   dependencies:
     detect-indent: "npm:^7.0.2"
     detect-newline: "npm:^4.0.1"
@@ -714,7 +714,7 @@ __metadata:
     tinyglobby: "npm:^0.2.15"
   bin:
     sort-package-json: cli.js
-  checksum: 10c0/169ea6b8fa233b77ff93f928c73392cbd53573b1faec24692b7b5afdd3487f1b1c3f390467628385dd64e3e01632b7be0c6b380fbb471c70d00c4c7884f44916
+  checksum: 10c0/81173fc152581f0c64846a651b5fc838b3660e422519bda34336845e3111f0d9744e8e24fa0a73e281c1ec9090c793ab25ebd7fdce0bfa404ae3607a2192eb1f
   languageName: node
   linkType: hard
 
@@ -786,12 +786,12 @@ __metadata:
   linkType: hard
 
 "tinyglobby@npm:^0.2.15":
-  version: 0.2.16
-  resolution: "tinyglobby@npm:0.2.16"
+  version: 0.2.17
+  resolution: "tinyglobby@npm:0.2.17"
   dependencies:
     fdir: "npm:^6.5.0"
     picomatch: "npm:^4.0.4"
-  checksum: 10c0/f2e09fd93dd95c41e522113b686ff6f7c13020962f8698a864a257f3d7737599afc47722b7ab726e12f8a813f779906187911ff8ee6701ede65072671a7e934b
+  checksum: 10c0/7f7bb0f197c88bc4b20c231e0deca4240ca3bf313a88f5a7fee93a872b84966a4d50220947c0455ad07a60b3b360961c5b7fd979222aeb716a9f99b412002e4c
   languageName: node
   linkType: hard
 

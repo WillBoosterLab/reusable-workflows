@@ -100,7 +100,7 @@ jobs:
     steps:
       - if: ${{ runner.environment == 'self-hosted' }}
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ inputs.branch }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -141,7 +141,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: jdx/mise-action@v4.1.0
+        uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - if: ${{ steps.check-gcloud.outputs.require-gcloud }}
@@ -202,7 +202,7 @@ jobs:
           echo ${VERSION}
 
       - if: ${{ steps.env-info.outputs.yarn-dir }}
-        uses: actions/cache@v5.0.5
+        uses: actions/cache@v6.1.0
         with:
           path: ${{ steps.env-info.outputs.yarn-dir }}
           # Don't use **/yarn.lock because it scans yarn.lock in node_modules

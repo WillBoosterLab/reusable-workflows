@@ -76,7 +76,7 @@ jobs:
       # arguments
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
         with:
           token: ${{ secrets.GH_TOKEN }}
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -105,7 +105,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.1.0
+        uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Show environment information

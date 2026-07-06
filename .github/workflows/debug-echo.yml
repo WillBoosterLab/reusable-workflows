@@ -24,7 +24,7 @@ jobs:
     outputs:
       text: ${{ steps.echo.outputs.text }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
       - id: echo
         run: |
           echo "text=${{ inputs.text }}" >> $GITHUB_OUTPUT

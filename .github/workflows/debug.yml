@@ -9,7 +9,7 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
       - run: |
           pwd
           ls -al
