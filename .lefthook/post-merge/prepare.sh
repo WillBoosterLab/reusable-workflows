@@ -1,3 +1,5 @@
+#!/bin/bash
+
 changed_files="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)"
 
 run_if_changed() {
@@ -6,6 +8,5 @@ run_if_changed() {
   fi
 }
 
-run_if_changed "\..+-version" "mise plugins update"
-run_if_changed "\..+-version" "mise install"
+run_if_changed "(mise\.toml|\.mise\.toml|\.tool-versions|\..+-version)" "mise install"
 run_if_changed "package\.json" "yarn"
