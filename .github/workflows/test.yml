@@ -210,8 +210,13 @@ jobs:
         name: Inspect dependency lockfile changes
         run: |
           # PkgPreflight is a WillBooster internal service; this uploads changed lockfile contents before install.
-          curl --fail --show-error --silent \
-            "https://raw.githubusercontent.com/${WORKFLOW_REPOSITORY}/${WORKFLOW_SHA}/.github/scripts/create-pkg-preflight-request.cjs" \
+          # Fetch the bootstrap via the authenticated Contents API (5000 req/h/token) instead of anonymous
+          # raw.githubusercontent.com, whose per-IP limit rate-limits shared runners with 429s. Still pinned to
+          # WORKFLOW_SHA for integrity; retry transient failures so a momentary blip doesn't fail the job.
+          curl --fail --show-error --silent --retry 5 --retry-all-errors --retry-delay 2 \
+            -H "authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "accept: application/vnd.github.raw+json" \
+            "https://api.github.com/repos/${WORKFLOW_REPOSITORY}/contents/.github/scripts/create-pkg-preflight-request.cjs?ref=${WORKFLOW_SHA}" \
             --output "$RUNNER_TEMP/create-pkg-preflight-request.cjs"
           node "$RUNNER_TEMP/create-pkg-preflight-request.cjs"
         env:
