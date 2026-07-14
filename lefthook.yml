@@ -7,7 +7,7 @@ post-merge:
 pre-commit:
   jobs:
     - name: cleanup
-      glob: '**/*.{}'
+      glob: '**/*.{java}'
       run: |-
         # Lefthook expands {staged_files} as shell-escaped args, so paths with spaces stay intact.
 
