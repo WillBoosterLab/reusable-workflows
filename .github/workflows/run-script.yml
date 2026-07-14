@@ -1,0 +1,215 @@
+name: Run script
+
+# Runs an arbitrary package.json script with the repo's dotenv/secret files in place.
+# Intended for scheduled maintenance jobs (e.g. cleanup scripts) so that caller repos
+# do not duplicate checkout/setup/install boilerplate per job.
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
+      ci_label:
+        default: medium
+        required: false
+        type: string
+      command:
+        # Name of the package.json script to run (e.g. cleanup-orphan-r2-objects).
+        required: true
+        type: string
+      command_args:
+        # Extra arguments appended to the script invocation. Whitespace-split; arguments
+        # containing spaces or shell metacharacters are not supported.
+        required: false
+        type: string
+      cpu_arch:
+        required: false
+        type: string
+      dot_env_path:
+        default: .env
+        required: false
+        type: string
+      environment:
+        # Exported as WB_ENV when set.
+        required: false
+        type: string
+      file_path_1:
+        required: false
+        type: string
+      file_path_2:
+        required: false
+        type: string
+      github_hosted_runner:
+        required: false
+        type: boolean
+      failure_mention_on_discord:
+        # default value is @exKAZUu
+        default: <@410228643143483402>
+        required: false
+        type: string
+      runs_on:
+        required: false
+        type: string
+      target_organization:
+        required: false
+        type: string
+      timeout_minutes:
+        # Timeout for the "Run script" step only, so the credential cleanup still runs.
+        default: 60
+        required: false
+        type: number
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: false
+      DOT_ENV:
+        required: false
+      FILE_CONTENT_1:
+        required: false
+      FILE_CONTENT_2:
+        required: false
+      GH_TOKEN:
+        required: false
+      GH_PKG_READ_TOKEN:
+        required: false
+
+jobs:
+  run-script:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    env:
+      FORCE_COLOR: 3
+      HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
+      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
+      HAS_FILE_CONTENT_2: ${{ !!secrets.FILE_CONTENT_2 }}
+      WB_ENV: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ inputs.branch }}
+      # Secrets are passed via env and written with printf so that quotes or backslashes in
+      # their values cannot break out of the shell command.
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
+        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
+        env:
+          DOT_ENV: ${{ secrets.DOT_ENV }}
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
+      - if: ${{ inputs.file_path_1 && env.HAS_FILE_CONTENT_1 == 'true' }}
+        run: printf '%s\n' "$FILE_CONTENT_1" > "$FILE_PATH_1"
+        env:
+          FILE_CONTENT_1: ${{ secrets.FILE_CONTENT_1 }}
+          FILE_PATH_1: ${{ inputs.file_path_1 }}
+      - if: ${{ inputs.file_path_2 && env.HAS_FILE_CONTENT_2 == 'true' }}
+        run: printf '%s\n' "$FILE_CONTENT_2" > "$FILE_PATH_2"
+        env:
+          FILE_CONTENT_2: ${{ secrets.FILE_CONTENT_2 }}
+          FILE_PATH_2: ${{ inputs.file_path_2 }}
+
+      - name: Check version files
+        id: check-ver
+        run: |
+          if [[ -f .tool-versions || -f mise.toml || -f .node-version || -f .python-version ]]; then
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
+          fi
+          if [[ -f .node-version ]] || \
+             ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) || \
+             ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
+            echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
+        uses: actions/setup-node@v6.5.0
+        with:
+          check-latest: true
+          node-version: lts/*
+      - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
+        name: Setup isolated GPG home
+        run: |
+          GNUPGHOME="$(mktemp -d "$RUNNER_TEMP/gnupg.XXXXXX")"
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: jdx/mise-action@v4.2.0
+        with:
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
+      - name: Show environment information
+        id: env-info
+        run: |
+          echo "WB_ENV: $WB_ENV"
+          echo "node: $(node -v)"
+          echo "npm: $(npm -v)"
+          if [[ -f bunfig.toml ]] && \
+             (([[ -f .tool-versions ]] && grep -qE '^bun[[:space:]]' .tool-versions) || \
+              ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml)); then
+            echo "bun: $(bun -v)"
+            echo "runner=bun" >> $GITHUB_OUTPUT
+          else
+            YARN=$(yarn -v); echo "yarn: $YARN"
+            if [[ "$YARN" == "1."* ]]; then
+              echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            fi
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+          fi
+      - if: ${{ steps.env-info.outputs.yarn-dir }}
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ steps.env-info.outputs.yarn-dir }}
+          # Don't use **/yarn.lock because it scans yarn.lock in node_modules
+          # c.f. https://github.com/AllanChain/blog/issues/98
+          key: ${{ runner.os }}-yarn-v1-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-v1-
+      - name: Install dependencies
+        # Unlike deploy.yml/test.yml, install failures are NOT suppressed here: a maintenance
+        # script run against a half-installed dependency graph could silently misbehave.
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            # Because bun sometimes fails to install private repos (but, update is okay)
+            bun install
+          else
+            ${{ steps.env-info.outputs.runner }} install
+          fi
+        env:
+          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
+
+      - name: Run "common/ci-setup" npm script if exists
+        run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
+
+      # The script name and arguments are reusable-workflow inputs; passing them via env keeps
+      # expression interpolation out of the shell script (no command injection). COMMAND_ARGS is
+      # deliberately expanded unquoted so that it word-splits into separate arguments.
+      - name: Run script
+        # Step-level so that the always() credential cleanup below still runs on timeout.
+        timeout-minutes: ${{ inputs.timeout_minutes }}
+        run: |
+          set -f # COMMAND_ARGS is whitespace-split into arguments; no glob expansion.
+          ${{ steps.env-info.outputs.runner }} run "$COMMAND" $COMMAND_ARGS
+        env:
+          COMMAND: ${{ inputs.command }}
+          COMMAND_ARGS: ${{ inputs.command_args }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # The payload content is JSON-escaped by GitHub's toJSON expression and inserted with
+      # printf, so quotes/backslashes in inputs cannot break the JSON or the shell, and the
+      # notifier needs no provisioned tools (an early failure may precede setup-node/mise).
+      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && failure() }}
+        run: |
+          printf '{"username":"WillBooster Bot","avatar_url":"https://avatars.githubusercontent.com/u/98675783","content":%s}' "$CONTENT_JSON" > "$RUNNER_TEMP/discord-payload.json"
+          curl --fail-with-body -X POST -H "Content-Type: application/json" --data @"$RUNNER_TEMP/discord-payload.json" "$DISCORD_WEBHOOK_URL"
+          rm -f "$RUNNER_TEMP/discord-payload.json"
+        env:
+          CONTENT_JSON: ${{ toJSON(format('{0} [{1}]({2}) の {3}{4} が[失敗](https://github.com/{5}/actions/runs/{6})しました！！！', inputs.failure_mention_on_discord, github.event.repository.name, github.event.repository.html_url, inputs.command, (inputs.environment && format(' ({0})', inputs.environment)) || '', github.repository, github.run_id)) }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+
+      - if: ${{ always() }}
+        name: Delete credential files
+        run: |
+          : # Delete each file only when this run actually wrote it (the caller may commit
+          : # files at these paths and run without the corresponding secret).
+          if [[ "$HAS_DOT_ENV" == "true" ]]; then rm -f -- "$DOT_ENV_PATH"; fi
+          if [[ "$HAS_FILE_CONTENT_1" == "true" && -n "$FILE_PATH_1" ]]; then rm -f -- "$FILE_PATH_1"; fi
+          if [[ "$HAS_FILE_CONTENT_2" == "true" && -n "$FILE_PATH_2" ]]; then rm -f -- "$FILE_PATH_2"; fi
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
+          FILE_PATH_1: ${{ inputs.file_path_1 }}
+          FILE_PATH_2: ${{ inputs.file_path_2 }}

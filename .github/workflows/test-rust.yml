@@ -1,0 +1,116 @@
+name: Test Rust
+
+on:
+  workflow_call:
+    inputs:
+      ci_label:
+        default: medium
+        required: false
+        type: string
+      github_hosted_runner:
+        required: false
+        type: boolean
+      paths_ignore:
+        default: '["**.md", "**/docs/**"]'
+        required: false
+        type: string
+      runs_on:
+        required: false
+        type: string
+      target_organization:
+        required: false
+        type: string
+      test_command:
+        default: cargo check --locked --all-targets
+        required: false
+        type: string
+      working_directory:
+        default: .
+        required: false
+        type: string
+      no_skip:
+        required: false
+        type: boolean
+jobs:
+  pre:
+    # To avoid testing on synced (mirrored) repos.
+    if: ${{ !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      # GitHub's Branch Protection and Rulesets require job running, so we should not skip entire jobs.
+      - if: ${{ !inputs.no_skip }}
+        id: skip_check
+        uses: fkirc/skip-duplicate-actions@04a1aebece824b56e6ad6a401d015479cd1c50b3
+        with:
+          cancel_others: false
+          skip_after_successful_duplicate: true
+          paths_ignore: ${{ inputs.paths_ignore }}
+  test-rust:
+    needs: [pre]
+    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && !github.event.repository.private }}
+        uses: actions/checkout@v7.0.0
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event.repository.private }}
+        run: |
+          if [[ ! -d .git ]]; then
+            git init --initial-branch=main
+          else
+            rm -f .git/shallow.lock
+          fi
+
+          git remote set-url origin git@github.com:${{ github.repository }}.git || git remote add origin git@github.com:${{ github.repository }}.git
+          git fetch --depth 1 origin ${{ github.head_ref || github.ref_name }}
+
+          git reset --hard
+          git clean -fdX
+          if ! git checkout -B ${{ github.head_ref || github.ref_name }} origin/${{ github.head_ref || github.ref_name }}; then
+            git clean -fdx
+            git checkout -B ${{ github.head_ref || github.ref_name }} origin/${{ github.head_ref || github.ref_name }}
+          fi
+          git reset --hard origin/${{ github.head_ref || github.ref_name }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Set up rustup
+        # Self-hosted runners may not have rustup; install it once into the persistent home directory.
+        run: |
+          if ! command -v rustup > /dev/null && [[ ! -x "$HOME/.cargo/bin/rustup" ]]; then
+            curl --proto '=https' --tlsv1.2 --fail --show-error --silent https://sh.rustup.rs | sh -s -- -y --default-toolchain none --no-modify-path
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Install Rust toolchain
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          # rust-toolchain(.toml) should pin a concrete toolchain so builds don't drift across runs.
+          if [[ -f rust-toolchain.toml || -f rust-toolchain ]]; then
+            rustup toolchain install
+          else
+            echo '::warning::No rust-toolchain(.toml) found; falling back to the latest stable toolchain.'
+            rustup toolchain install stable --profile minimal
+            rustup default stable
+          fi
+          rustup show
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.os == 'Linux' }}
+        name: Install Tauri system dependencies
+        working-directory: ${{ inputs.working_directory }}
+        # cf. https://tauri.app/start/prerequisites/#linux
+        run: |
+          if compgen -G 'tauri.conf.*' > /dev/null || [[ -f Tauri.toml ]]; then
+            if ! dpkg -s libwebkit2gtk-4.1-dev > /dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+            fi
+          fi
+      # Self-hosted runners keep the working directory (including target/) across runs.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.working_directory }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Test
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.test_command }}

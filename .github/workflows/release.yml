@@ -70,9 +70,9 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v6.5.0
         with:
-          node-version: '24.17.0'
+          node-version: '24.18.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
         name: Setup isolated GPG home

@@ -80,7 +80,7 @@ jobs:
             echo "require-node-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v6.5.0
         with:
           check-latest: true
           node-version: lts/*
@@ -138,8 +138,13 @@ jobs:
             git checkout -B ${{ github.head_ref || github.ref_name }} origin/${{ github.head_ref || github.ref_name }}
           fi
           git reset --hard origin/${{ github.head_ref || github.ref_name }}
+      # The secret is passed via env and written with printf so that quotes or backslashes in
+      # its value cannot break out of the shell command.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
-        run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
+        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
+        env:
+          DOT_ENV: ${{ secrets.DOT_ENV }}
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
 
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Check version files
@@ -154,7 +159,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' && !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@v6.5.0
         with:
           check-latest: true
           node-version: ${{ matrix.node-version || 'lts/*' }}
@@ -263,11 +268,20 @@ jobs:
           elif grep -q '"build":' package.json; then
             ${{ steps.env-info.outputs.runner }} run build
           fi
-          if git status | grep -q "Changes not staged for commit"; then
+          : # Exclude the dotenv file when the DOT_ENV secret overwrote it: a secret written
+          : # over a tracked file must never be committed and pushed by this autofix. Also
+          : # unstage it in case a caller-defined script staged it (git add -A in ci-setup etc.),
+          : # since the pathspec exclusion below cannot remove an existing index entry.
+          excludes=()
+          if [[ "$HAS_DOT_ENV" == "true" ]]; then
+            excludes=(":(exclude)$DOT_ENV_PATH")
+            git restore --staged -- "$DOT_ENV_PATH" 2> /dev/null || true
+          fi
+          if [[ -n "$(git status --porcelain -- . "${excludes[@]}")" ]]; then
             git status
-            git diff
+            git diff -- . "${excludes[@]}"
             if [[ "${{ github.event.repository.private }}" == "true" ]]; then
-              git add -A
+              git add -A -- . "${excludes[@]}"
               git commit -m "fix: apply changes of autofix workflow" --no-verify
               git push origin ${{ github.head_ref }} --no-verify
             else
@@ -275,6 +289,8 @@ jobs:
               exit 1
             fi
           fi
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       # Typecheck must be executed after `gen-code`
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run "typecheck" npm script if exists
@@ -329,6 +345,13 @@ jobs:
           name: test-artifact
           path: ${{ inputs.artifact_path }}
 
+      # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
+      # defaults to .env, which some private repos commit.
+      - if: ${{ always() && needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
+        name: Delete credential files
+        run: rm -f -- "$DOT_ENV_PATH"
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - if: ${{ always() }}
         name: Clean up pyc files, docker and ports
         run: |
