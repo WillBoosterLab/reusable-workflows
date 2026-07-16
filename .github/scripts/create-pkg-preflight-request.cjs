@@ -36,9 +36,11 @@ fs.mkdirSync(requestDir, { recursive: true });
 for (let index = 0; index < changedFiles.length; index += MaxFilesPerRequest) {
   const files = changedFiles.slice(index, index + MaxFilesPerRequest).map((file) => ({
     path: file.path,
-    // Keep this undefined for new files because the API schema accepts an optional string, not null.
+    // Keep these undefined for new/deleted files because the API schema accepts an optional string, not null.
     before: readBaseFile(file.beforePath ?? file.path),
-    after: fs.readFileSync(file.path, 'utf8'),
+    // Deleted lockfiles have no `after` content; pkg-preflight uses their `before` packages as the
+    // baseline for replacement lockfiles (e.g. a yarn-to-bun migration).
+    after: file.deleted ? undefined : fs.readFileSync(file.path, 'utf8'),
   }));
   fs.writeFileSync(path.join(requestDir, `${index / MaxFilesPerRequest}.json`), JSON.stringify({ json: { files } }));
 }
@@ -116,10 +118,17 @@ function listPullRequestChangedFiles({ pullRequestNumber, repository, token }) {
     totalFetched += files.length;
     changedFiles.push(
       ...files
-        .filter((file) => file.status === 'added' || file.status === 'modified' || file.status === 'renamed')
+        .filter(
+          (file) =>
+            file.status === 'added' ||
+            file.status === 'modified' ||
+            file.status === 'renamed' ||
+            file.status === 'removed'
+        )
         .map((file) => ({
           path: file.filename,
           beforePath: file.status === 'renamed' ? file.previous_filename : undefined,
+          deleted: file.status === 'removed',
         }))
         .filter((file) => file.path)
     );
@@ -131,7 +140,7 @@ function listPullRequestChangedFiles({ pullRequestNumber, repository, token }) {
 }
 
 function listGitChangedFiles() {
-  const records = execFileSync('git', ['diff', '-z', '--name-status', '--diff-filter=AMR', 'FETCH_HEAD'], {
+  const records = execFileSync('git', ['diff', '-z', '--name-status', '--diff-filter=AMRD', 'FETCH_HEAD'], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
@@ -161,7 +170,7 @@ function listGitChangedFiles() {
     index += 1;
 
     if (filePath) {
-      changedFiles.push({ path: filePath });
+      changedFiles.push({ path: filePath, deleted: status.startsWith('D') });
     }
   }
 
@@ -191,8 +200,11 @@ function postRequest(requestPath) {
     'curl',
     [
       '--fail-with-body',
+      // Railway's proxy allows roughly 300 seconds per request; stay just below it so large
+      // uncached lockfile diffs can finish while retries make incremental progress via the
+      // service's persistent scan cache.
       '--max-time',
-      '120',
+      '280',
       '--retry',
       String(PkgPreflightRetryAttempts),
       '--retry-delay',
