@@ -11,6 +11,9 @@ on:
       github_hosted_runner:
         required: false
         type: boolean
+      runs_on:
+        required: false
+        type: string
       dot_env_path:
         default: .env
         required: false
@@ -70,7 +73,8 @@ on:
         required: false
       GH_PKG_READ_TOKEN:
         required: false
-      NPM_TOKEN:
+      VERDACCIO_TOKEN:
+        description: auth token for the private Verdaccio registry (used to generate .npmrc)
         required: false
 
 jobs:
@@ -82,10 +86,19 @@ jobs:
       # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
       FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
-      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # Referenced by the generated .npmrc to authenticate against the private Verdaccio
       # registry when installing dependencies; empty when the caller does not provide the secret.
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
     steps:
+      # A crashed run can leave skip-worktree bits (from the .npmrc/dotenv hide steps) that
+      # survive every reset/clean and make checkout fail once the consumer deletes the committed
+      # file, permanently wedging a persistent workspace — clear them before checkout.
+      - name: Clear stale skip-worktree bits left by a crashed previous run
+        run: |
+          if [[ -d .git ]]; then
+            git ls-files -v 2> /dev/null | grep '^S ' | cut -c3- | tr '\n' '\0' | xargs -0 git update-index --no-skip-worktree -- 2> /dev/null || true
+            git checkout -- . 2> /dev/null || true
+          fi
       - uses: actions/checkout@v7.0.0
         with:
           token: ${{ secrets.GH_TOKEN }}
@@ -155,6 +168,48 @@ jobs:
             echo "poetry: $POETRY"
             poetry config virtualenvs.in-project true
           fi
+      # ${VERDACCIO_TOKEN} is written literally; npm/bun/yarn1 expand it from the environment at
+      # install time, so no plaintext token lands on disk. The file goes into the workspace, NOT
+      # ~/.npmrc: a persistent ~/.npmrc would crash npm/yarn1 in any other job on the same
+      # self-hosted runner that leaves VERDACCIO_TOKEN undefined. The managed lines are rewritten
+      # authoritatively so stale entries never win over the current token, and the file is hidden
+      # from git (a root-scoped exclude entry, or skip-worktree when the consumer tracks .npmrc)
+      # so commit-and-push workflows cannot commit it. Yarn Berry ignores .npmrc; Berry consumers
+      # must reference ${VERDACCIO_TOKEN} from their committed .yarnrc.yml instead.
+      - if: ${{ env.VERDACCIO_TOKEN != '' }}
+        name: Generate .npmrc for the private Verdaccio registry
+        run: |
+          : # Recover state a crashed previous run may have left behind (the always() cleanup
+          : # cannot run when the runner dies): clear a stale skip-worktree bit and restore the
+          : # committed content before regenerating.
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
+            git checkout -- .npmrc 2> /dev/null || true
+          fi
+          NPMRC_TMP=$(mktemp "$RUNNER_TEMP/npmrc.XXXXXX")
+          if [[ -e .npmrc ]]; then
+            grep -vE '^(@willbooster-private:registry|//verdaccio-production-e389\.up\.railway\.app/:_authToken)' .npmrc > "$NPMRC_TMP" || true
+            : # Some grep implementations do not add the final newline missing from the last line.
+            if [[ -s "$NPMRC_TMP" && -n "$(tail -c1 "$NPMRC_TMP")" ]]; then echo >> "$NPMRC_TMP"; fi
+          fi
+          echo '@willbooster-private:registry=https://verdaccio-production-e389.up.railway.app/' >> "$NPMRC_TMP"
+          echo '//verdaccio-production-e389.up.railway.app/:_authToken=${VERDACCIO_TOKEN}' >> "$NPMRC_TMP"
+          : # Replace .npmrc with mv instead of writing into it, so a consumer-committed symlink
+          : # cannot redirect the managed lines into its target (e.g. a persistent home npmrc).
+          rm -f .npmrc
+          mv "$NPMRC_TMP" .npmrc
+          : # Ignore rules never hide tracked files, so hide a committed .npmrc from the
+          : # commit-and-push workflows with skip-worktree (same pattern as gen-pr's dotenv hide).
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --skip-worktree -- .npmrc
+          else
+            if ! grep -qxF '/.npmrc' .git/info/exclude 2>/dev/null; then
+              : # A persistent exclude file may end without a newline; a direct append would
+              : # merge into its last rule and leave the generated file unhidden.
+              if [[ -s .git/info/exclude && -n "$(tail -c1 .git/info/exclude)" ]]; then echo >> .git/info/exclude; fi
+              echo '/.npmrc' >> .git/info/exclude
+            fi
+          fi
       - name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
@@ -197,7 +252,12 @@ jobs:
           if git ls-files --error-unmatch -- "$DOT_ENV_PATH" > /dev/null 2>&1; then
             git update-index --skip-worktree -- "$DOT_ENV_PATH"
           else
-            grep -qxF -- "$DOT_ENV_PATH" .git/info/exclude 2> /dev/null || printf '%s\n' "$DOT_ENV_PATH" >> .git/info/exclude
+            if ! grep -qxF -- "$DOT_ENV_PATH" .git/info/exclude 2> /dev/null; then
+              : # A persistent exclude file may end without a newline; a direct append would
+              : # merge into its last rule and let gen-pr's `git add -A` stage the dotenv file.
+              if [[ -s .git/info/exclude && -n "$(tail -c1 .git/info/exclude)" ]]; then echo >> .git/info/exclude; fi
+              printf '%s\n' "$DOT_ENV_PATH" >> .git/info/exclude
+            fi
           fi
         env:
           DOT_ENV_PATH: ${{ inputs.dot_env_path }}
@@ -233,12 +293,35 @@ jobs:
       - if: ${{ always() && env.HAS_DOT_ENV == 'true' }}
         name: Delete credential files
         run: |
-          rm -f -- "$DOT_ENV_PATH"
-          git update-index --no-skip-worktree -- "$DOT_ENV_PATH" 2> /dev/null || true
-          if [[ -f .git/info/exclude ]]; then
-            : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
-            grep -vxF -- "$DOT_ENV_PATH" .git/info/exclude > .git/info/exclude.tmp || true
-            mv .git/info/exclude.tmp .git/info/exclude
+          : # Restore a committed dotenv template instead of deleting it, which would leave the
+          : # persistent workspace dirty with a deleted tracked file.
+          if git ls-files --error-unmatch -- "$DOT_ENV_PATH" > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- "$DOT_ENV_PATH" 2> /dev/null || true
+            git checkout -- "$DOT_ENV_PATH" 2> /dev/null || true
+          else
+            rm -f -- "$DOT_ENV_PATH"
+            if [[ -f .git/info/exclude ]]; then
+              : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
+              grep -vxF -- "$DOT_ENV_PATH" .git/info/exclude > .git/info/exclude.tmp || true
+              mv .git/info/exclude.tmp .git/info/exclude
+            fi
           fi
         env:
           DOT_ENV_PATH: ${{ inputs.dot_env_path }}
+      # Revert the generate step: remove the file when this run created it, or restore the
+      # committed content and clear the skip-worktree bit when the consumer tracks .npmrc; the
+      # `.git` mutations otherwise outlive the job on persistent self-hosted workspaces.
+      - if: ${{ always() && env.VERDACCIO_TOKEN != '' }}
+        name: Clean up the generated .npmrc
+        run: |
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
+            git checkout -- .npmrc 2> /dev/null || true
+          else
+            rm -f .npmrc
+            if [[ -f .git/info/exclude ]]; then
+              : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
+              grep -vxF -- '/.npmrc' .git/info/exclude > .git/info/exclude.tmp || true
+              mv .git/info/exclude.tmp .git/info/exclude
+            fi
+          fi
