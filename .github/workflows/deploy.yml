@@ -62,6 +62,13 @@ on:
       version:
         required: false
         type: string
+      working_directory:
+        # Deploy target directory (e.g. packages/server for a monorepo Worker). The "common/ci-setup"
+        # and "deploy/ci-setup" hooks are looked up here first and in the repository root as a
+        # fallback, and the deploy command runs here. Dependencies are still installed in the root.
+        default: .
+        required: false
+        type: string
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
@@ -73,6 +80,9 @@ on:
         required: false
       FLY_API_TOKEN:
         required: false
+      FNOX_AGE_KEY:
+        description: age secret key to decrypt fnox.toml secrets
+        required: false
       GCP_SA_KEY_JSON:
         required: false
       GCP_SA_KEY_JSON_FOR_FIREBASE:
@@ -80,6 +90,8 @@ on:
       GH_TOKEN:
         required: false
       GH_PKG_READ_TOKEN:
+        required: false
+      NPM_TOKEN:
         required: false
       RAILWAY_API_TOKEN:
         required: false
@@ -93,6 +105,8 @@ jobs:
       # constants
       PYTHON_VERSION: 3.13.9
       # arguments
+      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FLY_API_TOKEN: ${{ !!secrets.FLY_API_TOKEN }}
@@ -101,6 +115,9 @@ jobs:
       HAS_FILE_CONTENT_2: ${{ !!secrets.FILE_CONTENT_2 }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
+      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # registry when installing dependencies; empty when the caller does not provide the secret.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
       - if: ${{ runner.environment == 'self-hosted' }}
@@ -108,6 +125,18 @@ jobs:
       - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ inputs.branch }}
+          # WB_VERSION below comes from `git describe --always --tags`; without tags it silently
+          # degrades to a bare commit sha, so a production deploy would no longer report its
+          # release version (e.g. via a /version endpoint or the Discord notification).
+          fetch-tags: true
+      # fnox exits 0 and silently omits age-encrypted secrets when FNOX_AGE_KEY is missing or
+      # wrong, so fail fast instead of deploying without secrets.
+      - name: Ensure FNOX_AGE_KEY is provided when fnox.toml exists
+        run: |
+          if [[ -f fnox.toml && -z "$FNOX_AGE_KEY" ]]; then
+            echo "::error::fnox.toml exists but the FNOX_AGE_KEY secret was not provided"
+            exit 1
+          fi
       # Secrets are passed via env and written with printf so that quotes or backslashes in
       # their values cannot break out of the shell command.
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -139,12 +168,17 @@ jobs:
           fi
       - name: Check gcloud is required
         id: check-gcloud
+        # The deploy target may live outside packages/*, so probe it too; otherwise gcloud would not
+        # be installed or authenticated for a deploy that needs it.
         run: |
           if [[ $HAS_GCP_SA_KEY_JSON == "true" ]]; then
-            if [[ "$(cat package.json)" == *gcloud* || "$(cat packages/*/package.json)" == *gcloud* ]]; then
+            if [[ "$(cat package.json)" == *gcloud* || "$(cat packages/*/package.json)" == *gcloud* || \
+                  "$(cat "$WORKING_DIRECTORY/package.json" 2> /dev/null)" == *gcloud* ]]; then
               echo "require-gcloud=1" >> $GITHUB_OUTPUT
             fi
           fi
+        env:
+          WORKING_DIRECTORY: ${{ inputs.working_directory }}
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v6.5.0
         with:
@@ -193,6 +227,12 @@ jobs:
             YARN=$(yarn -v); echo "yarn: $YARN"
             if [[ "$YARN" == "1."* ]]; then
               echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+              echo "skip-scripts-option=--ignore-scripts" >> $GITHUB_OUTPUT
+            elif [[ "$YARN" == "2."* ]]; then
+              : # Yarn 3 renamed Yarn 2's --skip-builds to --mode=skip-build.
+              echo "skip-scripts-option=--skip-builds" >> $GITHUB_OUTPUT
+            else
+              echo "skip-scripts-option=--mode=skip-build" >> $GITHUB_OUTPUT
             fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
@@ -247,7 +287,14 @@ jobs:
             # Because bun sometimes fails to install private repos (but, update is okay)
             bun install
           else
-            ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+            : # Retry the same install first: this is the only network-bound step without a retry, and
+            : # letting a transient failure reach the fallback would skip every lifecycle script.
+            ${{ steps.env-info.outputs.runner }} install || ${{ steps.env-info.outputs.runner }} install || {
+              : # Only a reproducible failure reaches here, which keeps postinstall failures tolerated
+              : # (consumers rely on it) while resolution, auth and lockfile errors still fail the job.
+              echo "::warning::Install failed twice; retrying without lifecycle scripts"
+              ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
+            }
           fi
         env:
           GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
@@ -263,8 +310,44 @@ jobs:
         env:
           GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
 
+      # A monorepo Worker declares its hooks in its own package.json next to its wrangler config, which
+      # a root-only lookup misses; the root stays the fallback for single-package repos.
+      - name: Prepare "ci-setup" hook runner
+        run: |
+          : # Fail fast: a path that is not a package (a typo like "packages" for "packages/server")
+          : # would otherwise run the root hook and, because `yarn run` walks up to the nearest
+          : # package, deploy the root package instead — succeeding while deploying the wrong thing.
+          if [[ ! -f "$WORKING_DIRECTORY/package.json" ]]; then
+            echo "::error::working_directory \"$WORKING_DIRECTORY\" has no package.json"
+            exit 1
+          fi
+          echo "PKG_RUNNER=$PKG_RUNNER" >> $GITHUB_ENV
+          echo "WORKING_DIRECTORY=$WORKING_DIRECTORY" >> $GITHUB_ENV
+          cat << 'EOF' > "$RUNNER_TEMP/run-ci-setup.sh"
+          set -euo pipefail
+          dirs=("$WORKING_DIRECTORY")
+          if [[ "$WORKING_DIRECTORY" != "." ]]; then dirs+=(.); fi
+          for dir in "${dirs[@]}"; do
+            : # Reading the parsed "scripts" object avoids both false negatives ("key" : "value" is
+            : # valid JSON) and false positives (the same key in a non-"scripts" object). A BOM is
+            : # stripped because Yarn accepts it while JSON.parse does not, and exit 2 keeps an
+            : # unparseable manifest fatal rather than silently reading as "hook not declared".
+            node -e 'const f=`${process.argv[1]}/package.json`, fs=require("fs"); if (!fs.existsSync(f)) process.exit(1); let s; try { s = JSON.parse(fs.readFileSync(f, "utf8").replace(/^\uFEFF/, "")).scripts } catch (e) { console.error(`::error::Cannot parse ${f}: ${e.message}`); process.exit(2) } process.exit(typeof s?.[process.argv[2]] === "string" ? 0 : 1)' "$dir" "$1" && rc=0 || rc=$?
+            if [[ $rc -eq 0 ]]; then
+              echo "Running \"$1\" in $dir"
+              cd "$dir" && exec $PKG_RUNNER run "$1"
+            elif [[ $rc -ne 1 ]]; then
+              exit $rc
+            fi
+          done
+          echo "Skipped \"$1\": not declared in ${dirs[*]/%//package.json}"
+          EOF
+        env:
+          PKG_RUNNER: ${{ steps.env-info.outputs.runner }}
+          WORKING_DIRECTORY: ${{ inputs.working_directory }}
+
       - name: Run "common/ci-setup" npm script if exists
-        run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
+        run: bash "$RUNNER_TEMP/run-ci-setup.sh" common/ci-setup
 
       - name: Deploy
         uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
@@ -272,8 +355,12 @@ jobs:
           timeout_minutes: 60
           max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
           command: |
+            : # The retry action runs this via `bash -c` without -e, so without this a failing
+            : # deploy/ci-setup or cd would fall through and deploy anyway, reporting success.
+            set -euo pipefail
             : # GCP_SA_KEY_JSON may be used in deploy/ci-setup
-            if [[ "$(cat package.json)" == *'"deploy/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run deploy/ci-setup; fi
+            bash "$RUNNER_TEMP/run-ci-setup.sh" deploy/ci-setup
+            cd "$WORKING_DIRECTORY"
             ${{ steps.env-info.outputs.runner }} run ${{ inputs.deploy_command || 'deploy' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

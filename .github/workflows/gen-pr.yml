@@ -47,6 +47,9 @@ on:
     secrets:
       DOT_ENV:
         required: false
+      FNOX_AGE_KEY:
+        description: age secret key to decrypt fnox.toml secrets
+        required: false
       GH_TOKEN:
         required: true
       OPENAI_API_KEY:
@@ -67,6 +70,8 @@ on:
         required: false
       GH_PKG_READ_TOKEN:
         required: false
+      NPM_TOKEN:
+        required: false
 
 jobs:
   generate-pr:
@@ -74,13 +79,23 @@ jobs:
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       # arguments
+      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # registry when installing dependencies; empty when the caller does not provide the secret.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
           token: ${{ secrets.GH_TOKEN }}
+      # The secret is passed via env and written with printf so that quotes or backslashes in
+      # its value cannot break out of the shell command.
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
-        run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
+        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
+        env:
+          DOT_ENV: ${{ secrets.DOT_ENV }}
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
 
       - name: Check version files
         id: check-ver
@@ -125,6 +140,12 @@ jobs:
             YARN=$(yarn -v); echo "yarn: $YARN"
             if [[ "$YARN" == "1."* ]]; then
               echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+              echo "skip-scripts-option=--ignore-scripts" >> $GITHUB_OUTPUT
+            elif [[ "$YARN" == "2."* ]]; then
+              : # Yarn 3 renamed Yarn 2's --skip-builds to --mode=skip-build.
+              echo "skip-scripts-option=--skip-builds" >> $GITHUB_OUTPUT
+            else
+              echo "skip-scripts-option=--mode=skip-build" >> $GITHUB_OUTPUT
             fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
@@ -139,7 +160,14 @@ jobs:
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
             bun install
           else
-            ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
+            : # Retry the same install first: this is the only network-bound step without a retry, and
+            : # letting a transient failure reach the fallback would skip every lifecycle script.
+            ${{ steps.env-info.outputs.runner }} install --no-immutable || ${{ steps.env-info.outputs.runner }} install --no-immutable || {
+              : # Only a reproducible failure reaches here, which keeps postinstall failures tolerated
+              : # (consumers rely on it) while resolution, auth and lockfile errors still fail the job.
+              echo "::warning::Install failed twice; retrying without lifecycle scripts"
+              ${{ steps.env-info.outputs.runner }} install --no-immutable ${{ steps.env-info.outputs.skip-scripts-option }}
+            }
           fi
         env:
           GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
@@ -157,6 +185,22 @@ jobs:
           elif grep -q '"build":' package.json; then
             ${{ steps.env-info.outputs.runner }} run build || true
           fi
+      # gen-pr@v4.1.15 commits the whole worktree (`git add -A`) and pushes it, but it also runs
+      # the coding tool and the caller's test-command before that commit, so the dotenv file must
+      # stay readable on disk while being invisible to `git add -A`. dot_env_path defaults to
+      # .env, which some private repos commit, so mark tracked files with skip-worktree and hide
+      # untracked ones via .git/info/exclude; the always() cleanup step below still deletes the
+      # file at job end.
+      - if: ${{ env.HAS_DOT_ENV == 'true' }}
+        name: Hide dotenv secret from gen-pr's commit
+        run: |
+          if git ls-files --error-unmatch -- "$DOT_ENV_PATH" > /dev/null 2>&1; then
+            git update-index --skip-worktree -- "$DOT_ENV_PATH"
+          else
+            grep -qxF -- "$DOT_ENV_PATH" .git/info/exclude 2> /dev/null || printf '%s\n' "$DOT_ENV_PATH" >> .git/info/exclude
+          fi
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - name: Generate PR with LLMs
         uses: WillBooster/gen-pr@v4.1.15
         with:
@@ -181,3 +225,20 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
+      # defaults to .env, which some private repos commit. Also revert the hide step's `.git`
+      # mutations (skip-worktree bit and info/exclude line), which otherwise outlive the job on
+      # persistent self-hosted workspaces and keep checkout from restoring a committed dotenv file.
+      - if: ${{ always() && env.HAS_DOT_ENV == 'true' }}
+        name: Delete credential files
+        run: |
+          rm -f -- "$DOT_ENV_PATH"
+          git update-index --no-skip-worktree -- "$DOT_ENV_PATH" 2> /dev/null || true
+          if [[ -f .git/info/exclude ]]; then
+            : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
+            grep -vxF -- "$DOT_ENV_PATH" .git/info/exclude > .git/info/exclude.tmp || true
+            mv .git/info/exclude.tmp .git/info/exclude
+          fi
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}

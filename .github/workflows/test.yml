@@ -39,6 +39,9 @@ on:
     secrets:
       DOT_ENV:
         required: false
+      FNOX_AGE_KEY:
+        description: age secret key to decrypt fnox.toml secrets
+        required: false
       GH_PKG_READ_TOKEN:
         required: false
       GH_TOKEN:
@@ -103,8 +106,13 @@ jobs:
       FORCE_COLOR: 3
       NODE_OPTIONS: --max-old-space-size=4096
       # arguments
+      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_TEST_COMMAND: ${{ !!inputs.custom_test_command }}
+      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # registry when installing dependencies; empty when the caller does not provide the secret.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       WB_ENV: ${{ inputs.environment || 'test' }}
     strategy:
       matrix:
@@ -191,6 +199,12 @@ jobs:
             YARN=$(yarn -v); echo "yarn: $YARN"
             if [[ "$YARN" == "1."* ]]; then
               echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+              echo "skip-scripts-option=--ignore-scripts" >> $GITHUB_OUTPUT
+            elif [[ "$YARN" == "2."* ]]; then
+              : # Yarn 3 renamed Yarn 2's --skip-builds to --mode=skip-build.
+              echo "skip-scripts-option=--skip-builds" >> $GITHUB_OUTPUT
+            else
+              echo "skip-scripts-option=--mode=skip-build" >> $GITHUB_OUTPUT
             fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
@@ -235,7 +249,14 @@ jobs:
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
             bun install
           else
-            ${{ steps.env-info.outputs.runner }} install --no-immutable || true # To ignore postinstall errors
+            : # Retry the same install first: this is the only network-bound step without a retry, and
+            : # letting a transient failure reach the fallback would skip every lifecycle script.
+            ${{ steps.env-info.outputs.runner }} install --no-immutable || ${{ steps.env-info.outputs.runner }} install --no-immutable || {
+              : # Only a reproducible failure reaches here, which keeps postinstall failures tolerated
+              : # (consumers rely on it) while resolution, auth and lockfile errors still fail the job.
+              echo "::warning::Install failed twice; retrying without lifecycle scripts"
+              ${{ steps.env-info.outputs.runner }} install --no-immutable ${{ steps.env-info.outputs.skip-scripts-option }}
+            }
           fi
         env:
           GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}

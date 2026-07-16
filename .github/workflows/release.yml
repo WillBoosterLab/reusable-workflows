@@ -34,6 +34,9 @@ on:
         required: false
       DOT_ENV:
         required: false
+      FNOX_AGE_KEY:
+        description: age secret key to decrypt fnox.toml secrets
+        required: false
       GH_TOKEN:
         required: true
       NPM_TOKEN:
@@ -51,13 +54,31 @@ jobs:
       FORCE_COLOR: 3
       NODE_OPTIONS: --max-old-space-size=4096
       # arguments
+      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # registry when installing dependencies; empty when the caller does not provide the secret.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v7.0.0
+      # fnox exits 0 and silently omits age-encrypted secrets when FNOX_AGE_KEY is missing or
+      # wrong, so fail fast instead of releasing without secrets.
+      - name: Ensure FNOX_AGE_KEY is provided when fnox.toml exists
+        run: |
+          if [[ -f fnox.toml && -z "$FNOX_AGE_KEY" ]]; then
+            echo "::error::fnox.toml exists but the FNOX_AGE_KEY secret was not provided"
+            exit 1
+          fi
+      # The secret is passed via env and written with printf so that quotes or backslashes in
+      # its value cannot break out of the shell command.
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
-        run: echo '${{ secrets.DOT_ENV }}' > ${{ inputs.dot_env_path }}
+        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
+        env:
+          DOT_ENV: ${{ secrets.DOT_ENV }}
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - name: Check version files
         id: check-ver
         run: |
@@ -100,6 +121,12 @@ jobs:
             YARN=$(yarn -v); echo "yarn: $YARN"
             if [[ "$YARN" == "1."* ]]; then
               echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+              echo "skip-scripts-option=--ignore-scripts" >> $GITHUB_OUTPUT
+            elif [[ "$YARN" == "2."* ]]; then
+              : # Yarn 3 renamed Yarn 2's --skip-builds to --mode=skip-build.
+              echo "skip-scripts-option=--skip-builds" >> $GITHUB_OUTPUT
+            else
+              echo "skip-scripts-option=--mode=skip-build" >> $GITHUB_OUTPUT
             fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
@@ -120,7 +147,14 @@ jobs:
             # Because bun sometimes fails to install private repos (but, update is okay)
             bun install
           else
-            ${{ steps.env-info.outputs.runner }} install || true # To ignore postinstall errors
+            : # Retry the same install first: this is the only network-bound step without a retry, and
+            : # letting a transient failure reach the fallback would skip every lifecycle script.
+            ${{ steps.env-info.outputs.runner }} install || ${{ steps.env-info.outputs.runner }} install || {
+              : # Only a reproducible failure reaches here, which keeps postinstall failures tolerated
+              : # (consumers rely on it) while resolution, auth and lockfile errors still fail the job.
+              echo "::warning::Install failed twice; retrying without lifecycle scripts"
+              ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
+            }
           fi
         env:
           GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
@@ -170,3 +204,11 @@ jobs:
         run: gh workflow run ${{ inputs.trigger_deploy_workflow }} --ref ${{ steps.post-release-tag.outputs.tag }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write + actions:write
+
+      # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
+      # defaults to .env, which some private repos commit.
+      - if: ${{ always() && env.HAS_DOT_ENV == 'true' }}
+        name: Delete credential files
+        run: rm -f -- "$DOT_ENV_PATH"
+        env:
+          DOT_ENV_PATH: ${{ inputs.dot_env_path }}

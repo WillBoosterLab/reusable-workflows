@@ -67,9 +67,14 @@ on:
         required: false
       FILE_CONTENT_2:
         required: false
+      FNOX_AGE_KEY:
+        description: age secret key to decrypt fnox.toml secrets
+        required: false
       GH_TOKEN:
         required: false
       GH_PKG_READ_TOKEN:
+        required: false
+      NPM_TOKEN:
         required: false
 
 jobs:
@@ -78,10 +83,15 @@ jobs:
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       FORCE_COLOR: 3
+      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
       HAS_FILE_CONTENT_2: ${{ !!secrets.FILE_CONTENT_2 }}
+      # Consumers' .npmrc references NPM_TOKEN to authenticate against the private Verdaccio
+      # registry when installing dependencies; empty when the caller does not provide the secret.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v7.0.0
@@ -159,7 +169,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-v1-
       - name: Install dependencies
-        # Unlike deploy.yml/test.yml, install failures are NOT suppressed here: a maintenance
+        # Unlike the other workflows, even postinstall failures are NOT tolerated here: a maintenance
         # script run against a half-installed dependency graph could silently misbehave.
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
