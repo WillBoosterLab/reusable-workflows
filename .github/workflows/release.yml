@@ -73,15 +73,8 @@ jobs:
       VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
       WB_ENV: ${{ inputs.environment }}
     steps:
-      # A crashed run can leave skip-worktree bits (from the .npmrc/dotenv hide steps) that
-      # survive every reset/clean and make checkout fail once the consumer deletes the committed
-      # file, permanently wedging a persistent workspace — clear them before checkout.
       - name: Clear stale skip-worktree bits left by a crashed previous run
-        run: |
-          if [[ -d .git ]]; then
-            git ls-files -v 2> /dev/null | grep '^S ' | cut -c3- | tr '\n' '\0' | xargs -0 git update-index --no-skip-worktree -- 2> /dev/null || true
-            git checkout -- . 2> /dev/null || true
-          fi
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - uses: actions/checkout@v7.0.0
       # The secret is passed via env and written with printf so that quotes or backslashes in
       # its value cannot break out of the shell command.
@@ -116,22 +109,8 @@ jobs:
         uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
-      # A mere FNOX_AGE_KEY presence check cannot catch a wrong key (fnox exits 0 and silently
-      # omits unresolvable secrets) and would wrongly fail configs needing no age key at all
-      # (plaintext defaults), so validate actual resolution in strict mode once mise installed fnox
-      # (--all includes env="exec"/env=false secrets; --no-daemon defeats a stale daemon cache).
-      - name: Ensure fnox.toml secrets are resolvable
-        run: |
-          # A defined WB_ENV selects the matching fnox profile like the wb env loader does; an
-          # undefined profile name safely falls back to the base secrets (verified on fnox 1.30.0).
-          FNOX_ARGS=(--all --format json --no-daemon --if-missing error)
-          if [[ -n "$WB_ENV" ]]; then FNOX_ARGS+=(--profile "$WB_ENV"); fi
-          if [[ -f fnox.toml ]] && command -v fnox > /dev/null; then
-            if ! FNOX_NON_INTERACTIVE=true fnox export "${FNOX_ARGS[@]}" > /dev/null; then
-              echo "::error::fnox.toml secrets cannot be resolved; check the FNOX_AGE_KEY secret"
-              exit 1
-            fi
-          fi
+      - name: Ensure fnox secrets are resolvable
+        uses: WillBooster/reusable-workflows/.github/actions/check-fnox-secrets@main
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212

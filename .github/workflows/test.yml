@@ -71,16 +71,9 @@ jobs:
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
-      # A crashed run can leave skip-worktree bits (from the .npmrc/dotenv hide steps) that
-      # survive every reset/clean and make checkout fail once the consumer deletes the committed
-      # file, permanently wedging a persistent workspace — clear them before checkout.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Clear stale skip-worktree bits left by a crashed previous run
-        run: |
-          if [[ -d .git ]]; then
-            git ls-files -v 2> /dev/null | grep '^S ' | cut -c3- | tr '\n' '\0' | xargs -0 git update-index --no-skip-worktree -- 2> /dev/null || true
-            git checkout -- . 2> /dev/null || true
-          fi
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: actions/checkout@v7.0.0
       # We need Node.js only if no version is declared in mise-managed files and no .node-version exists.
@@ -137,15 +130,8 @@ jobs:
         with:
           cancel_others: true
           paths_ignore: ${{ inputs.paths_ignore }}
-      # A crashed run can leave skip-worktree bits (from the .npmrc/dotenv hide steps) that
-      # survive every reset/clean and make checkout fail once the consumer deletes the committed
-      # file, permanently wedging a persistent workspace — clear them before checkout.
       - name: Clear stale skip-worktree bits left by a crashed previous run
-        run: |
-          if [[ -d .git ]]; then
-            git ls-files -v 2> /dev/null | grep '^S ' | cut -c3- | tr '\n' '\0' | xargs -0 git update-index --no-skip-worktree -- 2> /dev/null || true
-            git checkout -- . 2> /dev/null || true
-          fi
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - if: ${{ needs.pre.outputs.should_skip != 'true' && !github.event.repository.private }}
         uses: actions/checkout@v7.0.0
       - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event.repository.private }}
@@ -201,21 +187,13 @@ jobs:
         uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
-      # fnox exits 0 and silently omits unresolvable secrets, so a green run proves nothing about
-      # secret-dependent behavior. Unlike deploy's fail-fast check, this only warns: fork pull
-      # requests legitimately run without secrets.
+      # Unlike deploy's fail-fast check, this only warns: fork pull requests legitimately run
+      # without secrets.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        name: Warn when fnox.toml secrets cannot be resolved
-        run: |
-          # A defined WB_ENV selects the matching fnox profile like the wb env loader does; an
-          # undefined profile name safely falls back to the base secrets (verified on fnox 1.30.0).
-          FNOX_ARGS=(--all --format json --no-daemon --if-missing error)
-          if [[ -n "$WB_ENV" ]]; then FNOX_ARGS+=(--profile "$WB_ENV"); fi
-          if [[ -f fnox.toml ]] && command -v fnox > /dev/null; then
-            if ! FNOX_NON_INTERACTIVE=true fnox export "${FNOX_ARGS[@]}" > /dev/null; then
-              echo "::warning::fnox.toml secrets cannot be resolved and are silently omitted in this run; check the FNOX_AGE_KEY secret"
-            fi
-          fi
+        name: Warn when fnox secrets cannot be resolved
+        uses: WillBooster/reusable-workflows/.github/actions/check-fnox-secrets@main
+        with:
+          mode: warning
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info

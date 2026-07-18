@@ -1,0 +1,53 @@
+name: Check fnox secrets
+description: >-
+  Validate that the repository's fnox secrets are resolvable with the provided FNOX_AGE_KEY.
+  fnox exits 0 and silently omits unresolvable secrets by default, and a mere key-presence check
+  cannot tell a wrong key from a config needing no key at all (plaintext defaults), so this runs a
+  strict-mode resolution once mise installed fnox (--all includes env="exec"/env=false secrets;
+  --no-daemon defeats a stale daemon cache; a defined WB_ENV selects the matching profile like the
+  wb env loader does, and an undefined profile name safely falls back to the base secrets).
+inputs:
+  mode:
+    description: '"error" fails the job on unresolvable secrets; "warning" only annotates the run.'
+    default: error
+  working_directory:
+    description: >-
+      Additional directory whose effective fnox configuration must also resolve (e.g. the deploy
+      script's working directory; fnox resolves configs hierarchically through ancestors).
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Ensure fnox secrets are resolvable
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
+      run: |
+        FNOX_ARGS=(--all --format json --no-daemon --if-missing error)
+        if [[ -n "$WB_ENV" ]]; then FNOX_ARGS+=(--profile "$WB_ENV"); fi
+        # `fnox config-files` lists the directory's whole ancestor config chain and prints nothing
+        # for a directory with no fnox configuration.
+        run_check() (
+          cd "$1" || exit 1
+          # A failing `fnox config-files` (e.g. a broken fnox.toml) must fail the check, not skip it.
+          config_files="$(FNOX_NON_INTERACTIVE=true fnox config-files)" || exit 1
+          [[ -n "$config_files" ]] || exit 0
+          FNOX_NON_INTERACTIVE=true fnox export "${FNOX_ARGS[@]}" > /dev/null
+        )
+        report() {
+          if [[ "$MODE" == 'warning' ]]; then
+            echo "::warning::$1; unresolvable age-encrypted values are silently omitted in this run"
+          else
+            echo "::error::$1"
+            exit 1
+          fi
+        }
+        if command -v fnox > /dev/null; then
+          if ! run_check .; then
+            report 'fnox secrets cannot be resolved; check the FNOX_AGE_KEY secret'
+          fi
+          if [[ -n "$WORKING_DIRECTORY" && "$WORKING_DIRECTORY" != '.' ]] && ! run_check "$WORKING_DIRECTORY"; then
+            report "fnox secrets for working_directory \"$WORKING_DIRECTORY\" cannot be resolved; check the FNOX_AGE_KEY secret"
+          fi
+        fi
