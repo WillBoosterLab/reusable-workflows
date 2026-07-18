@@ -2,8 +2,10 @@ env = false
 telemetry = false
 
 [install]
-exact = false
-linker = "hoisted"
+exact = true
+globalStore = true
+linker = "isolated"
+publicHoistPattern = ["tsx", "undici-types"]
 minimumReleaseAge = 432000 # 5 days
 minimumReleaseAgeExcludes = [
   "@exercode/problem-utils",

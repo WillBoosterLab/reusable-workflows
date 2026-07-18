@@ -201,6 +201,21 @@ jobs:
         uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
+      # fnox exits 0 and silently omits unresolvable secrets, so a green run proves nothing about
+      # secret-dependent behavior. Unlike deploy's fail-fast check, this only warns: fork pull
+      # requests legitimately run without secrets.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Warn when fnox.toml secrets cannot be resolved
+        run: |
+          # A defined WB_ENV selects the matching fnox profile like the wb env loader does; an
+          # undefined profile name safely falls back to the base secrets (verified on fnox 1.30.0).
+          FNOX_ARGS=(--all --format json --no-daemon --if-missing error)
+          if [[ -n "$WB_ENV" ]]; then FNOX_ARGS+=(--profile "$WB_ENV"); fi
+          if [[ -f fnox.toml ]] && command -v fnox > /dev/null; then
+            if ! FNOX_NON_INTERACTIVE=true fnox export "${FNOX_ARGS[@]}" > /dev/null; then
+              echo "::warning::fnox.toml secrets cannot be resolved and are silently omitted in this run; check the FNOX_AGE_KEY secret"
+            fi
+          fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Show environment information
         id: env-info

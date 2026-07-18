@@ -9,7 +9,6 @@
   "scripts": {
     "cleanup": "bun run format",
     "format": "sort-package-json",
-    "postinstall": "husky || true",
     "pre-push": "echo 'start pre-push'; sleep 60; bun run sync",
     "prepare": "lefthook install || true",
     "sync": "one-way-git-sync -v -i node_modules -i renovate.json -d git@github.com:WillBoosterLab/reusable-workflows.git",

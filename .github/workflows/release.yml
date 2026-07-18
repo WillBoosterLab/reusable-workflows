@@ -50,6 +50,15 @@ on:
 jobs:
   release:
     if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
+    # Serialize releases per repository (not per ref — two refs can point at the same
+    # commit): with overlapping runs, a run could observe the tag another run just
+    # published at its own commit and re-dispatch that release's deploy.
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+      # The default queue (`single`) cancels an already-pending run when another one queues,
+      # silently dropping a release; keep every queued release.
+      queue: max
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
@@ -74,14 +83,6 @@ jobs:
             git checkout -- . 2> /dev/null || true
           fi
       - uses: actions/checkout@v7.0.0
-      # fnox exits 0 and silently omits age-encrypted secrets when FNOX_AGE_KEY is missing or
-      # wrong, so fail fast instead of releasing without secrets.
-      - name: Ensure FNOX_AGE_KEY is provided when fnox.toml exists
-        run: |
-          if [[ -f fnox.toml && -z "$FNOX_AGE_KEY" ]]; then
-            echo "::error::fnox.toml exists but the FNOX_AGE_KEY secret was not provided"
-            exit 1
-          fi
       # The secret is passed via env and written with printf so that quotes or backslashes in
       # its value cannot break out of the shell command.
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -115,6 +116,22 @@ jobs:
         uses: jdx/mise-action@v4.2.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
+      # A mere FNOX_AGE_KEY presence check cannot catch a wrong key (fnox exits 0 and silently
+      # omits unresolvable secrets) and would wrongly fail configs needing no age key at all
+      # (plaintext defaults), so validate actual resolution in strict mode once mise installed fnox
+      # (--all includes env="exec"/env=false secrets; --no-daemon defeats a stale daemon cache).
+      - name: Ensure fnox.toml secrets are resolvable
+        run: |
+          # A defined WB_ENV selects the matching fnox profile like the wb env loader does; an
+          # undefined profile name safely falls back to the base secrets (verified on fnox 1.30.0).
+          FNOX_ARGS=(--all --format json --no-daemon --if-missing error)
+          if [[ -n "$WB_ENV" ]]; then FNOX_ARGS+=(--profile "$WB_ENV"); fi
+          if [[ -f fnox.toml ]] && command -v fnox > /dev/null; then
+            if ! FNOX_NON_INTERACTIVE=true fnox export "${FNOX_ARGS[@]}" > /dev/null; then
+              echo "::error::fnox.toml secrets cannot be resolved; check the FNOX_AGE_KEY secret"
+              exit 1
+            fi
+          fi
       - name: Show environment information
         id: env-info
         # https://stackoverflow.com/a/677212
@@ -213,10 +230,81 @@ jobs:
       - if: ${{ !inputs.skip_build }}
         name: Build
         run: if [[ "$(cat package.json)" == *'"build":'* ]]; then ${{ steps.env-info.outputs.runner }} run build; fi
-      - name: Get current latest tag
+      # After waiting in the concurrency queue, a run can be older than the branch head a
+      # later run already released from; releasing from the stale checkout could publish a
+      # lower version after a higher one. GitHub does not guarantee queue ordering, so skip
+      # whenever the remote branch head has moved past this run's commit.
+      - name: Check whether this run is stale
+        id: stale-check
+        # Branch-triggered runs only: a tag/dispatch ref has no refs/heads entry. A missing
+        # remote head means the branch was deleted — a deletion push still triggers the
+        # workflow with GITHUB_SHA reset to the default branch, which must never be
+        # released. ls-remote's status is read un-piped with --exit-code (2 = ref absent;
+        # anything else non-zero is a transport error, retried once then failed loudly —
+        # nothing has been released yet, so a re-run recovers cleanly). A moved head marks
+        # the run stale only when a successor run exists for the new head: renovate
+        # branch-automerges and [skip ci] pushes move the head WITHOUT creating a run, and
+        # skipping then would silently drop this commit's release.
+        run: |
+          if [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            ls_head() { git ls-remote --exit-code origin "refs/heads/$GITHUB_REF_NAME"; }
+            LS_OUT=$(ls_head) && rc=0 || rc=$?
+            if [[ $rc -ne 0 && $rc -ne 2 ]]; then
+              sleep 5
+              LS_OUT=$(ls_head) && rc=0 || rc=$?
+            fi
+            if [[ $rc -ne 0 && $rc -ne 2 ]]; then
+              echo "::error::Could not read refs/heads/$GITHUB_REF_NAME on origin (git ls-remote exited $rc); nothing has been released — re-run the job."
+              exit 1
+            fi
+            if [[ $rc -eq 2 ]]; then
+              echo "::warning::Skipping the release: $GITHUB_REF_NAME was deleted."
+              echo "stale=true" >> "$GITHUB_OUTPUT"
+            else
+              REMOTE_HEAD=$(printf '%s' "$LS_OUT" | cut -f1)
+              if [[ "$REMOTE_HEAD" != "$GITHUB_SHA" ]]; then
+                : # A gh failure must not silently disable this guard (nor silently skip the
+                : # release): retry once, then fail loudly — nothing has been released yet.
+                run_count() { gh run list --commit "$REMOTE_HEAD" --workflow "$GITHUB_WORKFLOW" --json databaseId --jq length; }
+                SUCCESSOR_RUNS=$(run_count) || { sleep 5; SUCCESSOR_RUNS=$(run_count); } || {
+                  echo "::error::Could not list workflow runs for $REMOTE_HEAD; nothing has been released — re-run the job."
+                  exit 1
+                }
+                if [[ "$SUCCESSOR_RUNS" != "0" ]]; then
+                  echo "::warning::Skipping the release: $GITHUB_REF_NAME moved to $REMOTE_HEAD and a newer run exists for it."
+                  echo "stale=true" >> "$GITHUB_OUTPUT"
+                fi
+              fi
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # This baseline feeds the new-release check that gates the deploy trigger and the
+      # Discord notification, so skip it (and its fetch cost) when neither is configured.
+      - if: ${{ steps.stale-check.outputs.stale != 'true' && (inputs.trigger_deploy_workflow || env.HAS_DISCORD_WEBHOOK_URL == 'true') }}
+        name: Record the tags existing before the release
         id: pre-release-tag
-        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
-      - name: Release
+        # The checkout is shallow and tag-less, so fetch the tags first (`--unshallow` on a
+        # shallow clone so the refs resolve; it fails on a complete repository, e.g.
+        # persistent self-hosted workspaces, hence the conditional). Retry once, then FAIL:
+        # nothing has been published yet, and an unknown baseline could otherwise attribute
+        # a pre-existing tag to this run (e.g. a re-run of an already-released commit) and
+        # re-dispatch its deploy.
+        run: |
+          # --prune-tags drops runner-local tags absent from the remote (persistent
+          # self-hosted workspaces can retain a tag from a run whose push failed), so the
+          # baseline reflects the remote tag namespace.
+          fetch_tags() {
+            if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
+              git fetch --unshallow --prune --prune-tags --tags --force
+            else
+              git fetch --prune --prune-tags --tags --force
+            fi
+          }
+          fetch_tags || { sleep 10; fetch_tags; }
+          git tag --list | sort > "$RUNNER_TEMP/tags-before-release.txt"
+      - if: ${{ steps.stale-check.outputs.stale != 'true' }}
+        name: Release
         run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
             ${{ steps.env-info.outputs.runner }} run release
@@ -232,31 +320,116 @@ jobs:
           HUSKY: 0
           LEFTHOOK: 0
 
-      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' }}
-        run: |
-          curl -X POST -H "Content-Type: application/json" \
-               --data "{
-                  \"username\": \"WillBooster Bot\",
-                  \"avatar_url\": \"https://avatars.githubusercontent.com/u/98675783\",
-                  \"content\": \"[${{ github.event.repository.name }}](${{ github.event.repository.html_url }})の最新版 ([$(git describe --always --tags)](https://github.com/${{ github.repository }}/commits/$(git describe --always --tags))) をリリースしました。\"
-               }" \
-               ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-      - if: ${{ inputs.trigger_deploy_workflow }}
+      # !cancelled(): semantic-release can fail AFTER pushing its tag (e.g. a later publish
+      # plugin); the pushed release must still be detected and deployed — a re-run cannot
+      # re-detect it, and the job still fails via the Release step's own outcome.
+      - if: ${{ !cancelled() && (inputs.trigger_deploy_workflow || env.HAS_DISCORD_WEBHOOK_URL == 'true') && steps.pre-release-tag.outcome == 'success' }}
         name: Check for new release tag
         id: post-release-tag
+        # semantic-release creates the tag locally before pushing, so tolerate a failed
+        # fetch here instead of failing the job after a successful release. The new tag is
+        # detected as a set difference against the baseline AND must point at the commit
+        # this run built, so a tag published by an overlapping run or an already-released
+        # commit can never re-trigger a deploy. The set difference (not `git describe`,
+        # which prefers annotated tags and can hide semantic-release's lightweight tag
+        # behind an annotated one on the same commit) identifies the created tag. Tag names
+        # may contain shell metacharacters, so they reach later scripts only via env.
+        # A new tag counts as this run's when its commit is GITHUB_SHA or a descendant of it
+        # (release scripts like `npm version` tag a commit they create on top of GITHUB_SHA);
+        # pre-existing tags point at ancestors and never match. Multiple tags are kept
+        # space-joined (refnames cannot contain spaces): multi-semantic-release tags every
+        # workspace package on the same commit. The qualified ref + --end-of-options keeps
+        # tag names starting with '-' from being parsed as options.
         run: |
-          git fetch --tags --force
-          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
-          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
-          if [[ -n "$NEW_TAG" && "$NEW_TAG" != "${{ steps.pre-release-tag.outputs.tag }}" ]]; then
+          check_remote_tag() {
+            git ls-remote --exit-code --tags origin "refs/tags/$1" > /dev/null 2>&1
+          }
+          git fetch --prune --prune-tags --tags --force || true
+          git tag --list | sort > "$RUNNER_TEMP/tags-after-release.txt"
+          NEW_TAGS=''
+          NEW_COMMIT=''
+          UNRESOLVED_TAGS=''
+          while IFS= read -r tag; do
+            TAG_COMMIT=$(git rev-parse --verify --end-of-options "refs/tags/$tag^{commit}" 2>/dev/null) || continue
+            git merge-base --is-ancestor "$GITHUB_SHA" "$TAG_COMMIT" 2>/dev/null || continue
+            # Only remotely published tags count: a release script may tag locally and then
+            # fail to push, and `gh workflow run --ref` cannot resolve a local-only tag.
+            # ls-remote --exit-code returns 2 for a missing ref; any other failure is a
+            # transport error, which must not silently drop a published release (a re-run
+            # cannot re-detect it), so retry once and then fail loudly.
+            if check_remote_tag "$tag"; then
+              :
+            else
+              rc=$?
+              if [[ $rc -ne 2 ]]; then
+                sleep 5
+                check_remote_tag "$tag" && rc=0 || rc=$?
+              fi
+              if [[ $rc -eq 2 ]]; then continue; fi
+              if [[ $rc -ne 0 ]]; then
+                # Keep scanning: one unverifiable tag must not swallow the side effects of
+                # tags that DID verify (a re-run cannot re-detect any of them).
+                echo "::error::Could not verify refs/tags/$tag on origin (git ls-remote exited $rc); if it is published, dispatch the deploy manually with \`gh workflow run <workflow> --ref $tag\`."
+                UNRESOLVED_TAGS="${UNRESOLVED_TAGS:+$UNRESOLVED_TAGS }$tag"
+                continue
+              fi
+            fi
+            NEW_TAGS="${NEW_TAGS:+$NEW_TAGS }$tag"
+            NEW_COMMIT=${NEW_COMMIT:-$TAG_COMMIT}
+          done < <(comm -13 "$RUNNER_TEMP/tags-before-release.txt" "$RUNNER_TEMP/tags-after-release.txt")
+          echo "tags=$NEW_TAGS" >> "$GITHUB_OUTPUT"
+          echo "commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
+          if [[ -n "$NEW_TAGS" ]]; then
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
-      - if: ${{ inputs.trigger_deploy_workflow && steps.post-release-tag.outputs.created == 'true' }}
+          if [[ -n "${UNRESOLVED_TAGS:-}" ]]; then
+            exit 1
+          fi
+      # outputs.created is still written when the step later fails on an unverifiable tag,
+      # and !cancelled() lets the verified tags' side effects proceed.
+      - if: ${{ !cancelled() && inputs.trigger_deploy_workflow && steps.post-release-tag.outputs.created == 'true' }}
         name: Trigger deploy workflow
-        run: gh workflow run ${{ inputs.trigger_deploy_workflow }} --ref ${{ steps.post-release-tag.outputs.tag }}
+        # Word splitting on $NEW_TAGS is intended: refnames cannot contain spaces. Each tag
+        # is retried once and a failure does not abort the remaining tags. NOTE: a re-run of
+        # this job cannot re-detect the tags (its baseline already contains them), so if
+        # dispatches still fail, recover manually with
+        # `gh workflow run <deploy workflow> --ref <tag>`.
+        run: |
+          STATUS=0
+          for tag in $NEW_TAGS; do
+            gh workflow run "$DEPLOY_WORKFLOW" --ref "$tag" || gh workflow run "$DEPLOY_WORKFLOW" --ref "$tag" || {
+              echo "::error::Failed to dispatch $DEPLOY_WORKFLOW for $tag; run \`gh workflow run $DEPLOY_WORKFLOW --ref $tag\` manually."
+              STATUS=1
+            }
+          done
+          exit $STATUS
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write + actions:write
+          DEPLOY_WORKFLOW: ${{ inputs.trigger_deploy_workflow }}
+          NEW_TAGS: ${{ steps.post-release-tag.outputs.tags }}
+      # Notify only when this run actually created a release; a build-only push used to
+      # re-announce the previous tag. Same hardened shape as deploy.yml's notifiers: the
+      # content is JSON-escaped by toJSON and inserted with printf so tag names cannot break
+      # the JSON or the shell, and --fail-with-body surfaces webhook rejections instead of
+      # silently losing the announcement. This step must stay AFTER the deploy trigger:
+      # under bash -e a webhook rejection fails the job, and the deploy dispatch is not
+      # recoverable by a re-run (the re-run's baseline already contains the tag).
+      # allowed_mentions is emptied because the tag name lands in Discord Markdown, and the
+      # commit link uses the SHA so tag names need no URL-encoding.
+      # !cancelled(): the announcement of a created release must still go out when a
+      # deploy dispatch failed (the implicit success() would skip it, unrecoverably).
+      - if: ${{ !cancelled() && env.HAS_DISCORD_WEBHOOK_URL == 'true' && steps.post-release-tag.outputs.created == 'true' }}
+        run: |
+          printf '{"username":"WillBooster Bot","avatar_url":"https://avatars.githubusercontent.com/u/98675783","allowed_mentions":{"parse":[]},"content":%s}' "$CONTENT_JSON" > "$RUNNER_TEMP/discord-payload.json"
+          : # wait=true makes Discord confirm the message was saved; without it an unsaved
+          : # message still returns success and the announcement is silently lost.
+          curl --retry 2 --fail-with-body -X POST -H "Content-Type: application/json" --data @"$RUNNER_TEMP/discord-payload.json" "$DISCORD_WEBHOOK_URL?wait=true"
+          rm -f "$RUNNER_TEMP/discord-payload.json"
+        env:
+          # The link targets the tagged commit, which release scripts like npm version may
+          # create on top of github.sha.
+          CONTENT_JSON: ${{ toJSON(format('[{0}]({1})の最新版 ([{2}]({1}/commit/{3})) をリリースしました。', github.event.repository.name, github.event.repository.html_url, steps.post-release-tag.outputs.tags, steps.post-release-tag.outputs.commit)) }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
       # defaults to .env, which some private repos commit.
