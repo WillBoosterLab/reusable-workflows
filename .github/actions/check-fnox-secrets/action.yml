@@ -43,7 +43,10 @@ runs:
             exit 1
           fi
         }
-        if command -v fnox > /dev/null; then
+        # `command -v` alone is fooled by mise SHIMS on persistent self-hosted runners: a global
+        # fnox shim exists even for repos that do not pin fnox, and errors with "No version is
+        # set for shim" — which must mean "no fnox here", not a failed check.
+        if command -v fnox > /dev/null && fnox --version > /dev/null 2>&1; then
           if ! run_check .; then
             report 'fnox secrets cannot be resolved; check the FNOX_AGE_KEY secret'
           fi
