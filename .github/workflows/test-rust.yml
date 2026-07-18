@@ -107,7 +107,7 @@ jobs:
           fi
       # Self-hosted runners keep the working directory (including target/) across runs.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.9.1
         with:
           workspaces: ${{ inputs.working_directory }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
