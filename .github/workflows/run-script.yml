@@ -30,8 +30,9 @@ on:
         required: false
         type: string
       environment:
-        # Exported as WB_ENV when set.
-        required: false
+        # Exported as WB_ENV. Required so a generic script never runs in an ambiguous
+        # environment: callers must state e.g. production for jobs touching live data.
+        required: true
         type: string
       file_path_1:
         required: false
@@ -100,6 +101,14 @@ jobs:
       VERDACCIO_TOKEN: ''
       WB_ENV: ${{ inputs.environment }}
     steps:
+      # `required: true` does not guarantee a non-empty value: a caller passing e.g.
+      # `environment: ${{ vars.WB_ENV }}` with the variable unset supplies an empty string.
+      - name: Ensure the environment input is not empty
+        run: |
+          if [[ -z "$WB_ENV" ]]; then
+            echo '::error::The environment input is empty; pass a concrete environment (e.g. production).'
+            exit 1
+          fi
       - name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - uses: actions/checkout@v7.0.0
@@ -215,7 +224,7 @@ jobs:
           rm -f .npmrc
           mv "$NPMRC_TMP" .npmrc
           : # Ignore rules never hide tracked files, so hide a committed .npmrc from the
-          : # commit-and-push workflows with skip-worktree (same pattern as gen-pr's dotenv hide).
+          : # commit-and-push workflows with skip-worktree (the dotenv-hide pattern shared by these workflows).
           if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
             git update-index --skip-worktree -- .npmrc
           else

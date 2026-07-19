@@ -303,7 +303,7 @@ jobs:
           rm -f .npmrc
           mv "$NPMRC_TMP" .npmrc
           : # Ignore rules never hide tracked files, so hide a committed .npmrc from the
-          : # commit-and-push workflows with skip-worktree (same pattern as gen-pr's dotenv hide).
+          : # commit-and-push workflows with skip-worktree (the dotenv-hide pattern shared by these workflows).
           if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
             git update-index --skip-worktree -- .npmrc
           else
