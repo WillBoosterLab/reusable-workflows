@@ -13,4 +13,4 @@ jobs:
       - run: |
           pwd
           ls -al
-          echo "${{ !github.event.repository.private || inputs.github_hosted_runner }}"
+          echo "runner.environment: ${{ runner.environment }}"

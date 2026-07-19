@@ -14,13 +14,15 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
+      # The branch name is an attacker-controlled script-injection source, so it reaches the
+      # generated script only via process.env (never interpolated into shell or JS source).
       - run: |
           mkdir -p temp
-          echo "import { spawnSync } from 'node:child_process';" > temp/addCloseComment.mjs
-          echo "const headRef = '${{ github.head_ref }}';" >> temp/addCloseComment.mjs
-          echo "const prNumber = '${{ github.event.pull_request.number }}';" >> temp/addCloseComment.mjs
-          echo "const repository = '${{ github.repository }}';" >> temp/addCloseComment.mjs
-          cat - >> temp/addCloseComment.mjs << 'END_OF_HEARDOC'
+          cat - > temp/addCloseComment.mjs << 'END_OF_HEARDOC'
+          import { spawnSync } from 'node:child_process';
+          const headRef = process.env.HEAD_REF ?? '';
+          const prNumber = process.env.PR_NUMBER ?? '';
+          const repository = process.env.REPOSITORY ?? '';
           const url = `https://github.com/${repository}/pull/${prNumber}`;
           const [issueNumber] = headRef.split(/[-_]/);
           const issueNumberRegex = /^[0-9]+$/;
@@ -44,3 +46,6 @@ jobs:
           rm -Rf temp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}

@@ -17,7 +17,7 @@
     "verify-full": "bun node_modules/@willbooster/wb/bin/index.js verify --full"
   },
   "devDependencies": {
-    "@willbooster/wb": "14.0.0",
+    "@willbooster/wb": "14.1.0",
     "lefthook": "2.1.10",
     "one-way-git-sync": "6.0.44",
     "sort-package-json": "4.0.0"

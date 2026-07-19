@@ -116,9 +116,14 @@ jobs:
       HAS_FILE_CONTENT_2: ${{ !!secrets.FILE_CONTENT_2 }}
       HAS_GCP_SA_KEY_JSON_FOR_FIREBASE: ${{ !!secrets.GCP_SA_KEY_JSON_FOR_FIREBASE }}
       HAS_RAILWAY_API_TOKEN: ${{ !!secrets.RAILWAY_API_TOKEN }}
-      # Referenced by the generated .npmrc to authenticate against the private Verdaccio
-      # registry when installing dependencies; empty when the caller does not provide the secret.
-      VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+      # Non-secret signal for the `if:` gates below; the VERDACCIO_TOKEN secret itself is
+      # provided step-scoped only to the steps whose package-manager invocations expand it
+      # from the generated .npmrc.
+      HAS_VERDACCIO_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN }}
+      # Defined-but-empty default: yarn1 crashes with "Failed to replace env in config" when a
+      # .npmrc references an UNDEFINED env var (an empty one is fine), so steps that are not
+      # given the secret still need the variable to exist while the generated .npmrc is on disk.
+      VERDACCIO_TOKEN: ''
       WB_ENV: ${{ inputs.environment }}
     steps:
       - if: ${{ runner.environment == 'self-hosted' }}
@@ -292,7 +297,7 @@ jobs:
       # from git (a root-scoped exclude entry, or skip-worktree when the consumer tracks .npmrc)
       # so commit-and-push workflows cannot commit it. Yarn Berry ignores .npmrc; Berry consumers
       # must reference ${VERDACCIO_TOKEN} from their committed .yarnrc.yml instead.
-      - if: ${{ env.VERDACCIO_TOKEN != '' }}
+      - if: ${{ env.HAS_VERDACCIO_TOKEN == 'true' }}
         name: Generate .npmrc for the private Verdaccio registry
         run: |
           : # Recover state a crashed previous run may have left behind (the always() cleanup
@@ -326,11 +331,23 @@ jobs:
               echo '/.npmrc' >> .git/info/exclude
             fi
           fi
+      # With a Verdaccio token, resolve and download with lifecycle scripts disabled so
+      # repository- or dependency-defined preinstall/postinstall can never read the step-scoped
+      # VERDACCIO_TOKEN (#449); the tokenless step below replays the skipped scripts.
       - name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            # Because bun sometimes fails to install private repos (but, update is okay)
-            bun install
+            if [[ "$HAS_VERDACCIO_TOKEN" == "true" ]]; then
+              bun install --ignore-scripts
+            else
+              # Because bun sometimes fails to install private repos (but, update is okay)
+              bun install
+            fi
+          elif [[ "$HAS_VERDACCIO_TOKEN" == "true" ]]; then
+            : # No lifecycle scripts run here, so a single retry only covers transient network
+            : # failures; a reproducible failure is a resolution, auth or lockfile error.
+            ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }} || \
+              ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
           else
             : # Retry the same install first: this is the only network-bound step without a retry, and
             : # letting a transient failure reach the fallback would skip every lifecycle script.
@@ -338,6 +355,34 @@ jobs:
               : # Only a reproducible failure reaches here, which keeps postinstall failures tolerated
               : # (consumers rely on it) while resolution, auth and lockfile errors still fail the job.
               echo "::warning::Install failed twice; retrying without lifecycle scripts"
+              ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
+            }
+          fi
+        env:
+          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+      # Replay the lifecycle scripts the credentialed install skipped, in an environment without
+      # VERDACCIO_TOKEN (the job-level empty value keeps ${VERDACCIO_TOKEN} references in
+      # .npmrc/.yarnrc.yml expanding to '' instead of erroring). Every package is already in the
+      # package manager's cache from the step above, so the private registry is not contacted.
+      - if: ${{ env.HAS_VERDACCIO_TOKEN == 'true' }}
+        name: Run dependency lifecycle scripts without registry credentials
+        run: |
+          if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
+            : # A repeated `bun install` is a no-op that does not replay skipped scripts, so
+            : # force a full cache-hit re-link.
+            rm -rf node_modules
+            bun install
+          else
+            if [[ "${{ steps.env-info.outputs.skip-scripts-option }}" == "--ignore-scripts" ]]; then
+              : # yarn1 reports "Already up-to-date" and skips scripts unless node_modules is
+              : # removed; Yarn Berry instead tracks unbuilt packages and rebuilds them itself.
+              rm -rf node_modules
+            fi
+            ${{ steps.env-info.outputs.runner }} install || {
+              : # Keep postinstall failures tolerated (consumers rely on it) while still leaving
+              : # a complete node_modules behind.
+              echo "::warning::Lifecycle scripts failed; completing the install without them"
               ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
             }
           fi
@@ -393,6 +438,10 @@ jobs:
 
       - name: Run "common/ci-setup" npm script if exists
         run: bash "$RUNNER_TEMP/run-ci-setup.sh" common/ci-setup
+        env:
+          # Consumer hooks may install private packages (e.g. `bunx @willbooster-private/...`),
+          # which expand ${VERDACCIO_TOKEN} from the generated .npmrc at run time.
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
 
       - name: Deploy
         uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
@@ -416,6 +465,9 @@ jobs:
           RAILWAY_ENVIRONMENT_ID: ${{ inputs.environment }}
           RAILWAY_PROJECT_ID: ${{ inputs.railway_project_id }}
           RAILWAY_SERVICE_ID: ${{ inputs.railway_service_id }}
+          # Consumer deploy scripts may install private packages (e.g. `bunx
+          # @willbooster-private/...`), which expand ${VERDACCIO_TOKEN} from the generated .npmrc.
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
 
       - if: ${{ inputs.health_check_path }}
         name: Check health of deployed server
@@ -501,7 +553,7 @@ jobs:
       # Revert the generate step: remove the file when this run created it, or restore the
       # committed content and clear the skip-worktree bit when the consumer tracks .npmrc; the
       # `.git` mutations otherwise outlive the job on persistent self-hosted workspaces.
-      - if: ${{ always() && env.VERDACCIO_TOKEN != '' }}
+      - if: ${{ always() && env.HAS_VERDACCIO_TOKEN == 'true' }}
         name: Clean up the generated .npmrc
         run: |
           if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then

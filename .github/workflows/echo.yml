@@ -20,5 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
       - id: echo
+        # The text may carry attacker-controlled content (e.g. a PR title), so it reaches the
+        # shell only via env and is always quoted. The delimiter syntax with a random delimiter
+        # keeps multi-line values from corrupting $GITHUB_OUTPUT or injecting extra outputs.
         run: |
-          echo "text=${{ inputs.text }}" >> $GITHUB_OUTPUT
+          delimiter="$(openssl rand -hex 16)"
+          {
+            echo "text<<$delimiter"
+            printf '%s\n' "$TEXT"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          TEXT: ${{ inputs.text }}

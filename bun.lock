@@ -5,7 +5,7 @@
     "": {
       "name": "reusable-workflows",
       "devDependencies": {
-        "@willbooster/wb": "14.0.0",
+        "@willbooster/wb": "14.1.0",
         "lefthook": "2.1.10",
         "one-way-git-sync": "6.0.44",
         "sort-package-json": "4.0.0",
@@ -31,7 +31,7 @@
 
     "@sindresorhus/merge-streams": ["@sindresorhus/merge-streams@4.0.0", "", {}, "sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ=="],
 
-    "@willbooster/wb": ["@willbooster/wb@14.0.0", "", { "dependencies": { "chalk": "5.6.2", "dotenv": "17.4.2", "dotenv-expand": "13.0.0", "fastest-levenshtein": "1.0.16", "globby": "16.2.0", "jsonc-parser": "3.3.1", "kill-port": "2.0.1", "minimal-promise-pool": "6.0.2", "yargs": "18.0.0" }, "bin": { "wb": "bin/index.js" } }, "sha512-39tsXeTF+8qP26V1+RxDfb+stWX1DLfYCP6F5x8ByUP3AKAW5k455CCHpS3EMdnbpNHPLbP+rvagbATq3WnKUg=="],
+    "@willbooster/wb": ["@willbooster/wb@14.1.0", "", { "dependencies": { "chalk": "5.6.2", "dotenv": "17.4.2", "dotenv-expand": "13.0.0", "fastest-levenshtein": "1.0.16", "globby": "16.2.0", "jsonc-parser": "3.3.1", "kill-port": "2.0.1", "minimal-promise-pool": "6.0.2", "yargs": "18.0.0" }, "bin": { "wb": "bin/index.js" } }, "sha512-xlTq73bu3qT83zLO7VP0y5y1uMMZQTrPcNTykpcGGDHz0T8Rp5iAf4veDimylFFl/gsnxUgyHqqZGzDvEamyUg=="],
 
     "ansi-regex": ["ansi-regex@6.2.2", "", {}, "sha512-Bq3SmSpyFHaWjPk8If9yc6svM8c56dB5BAtW4Qbw5jHTwwXXcTLoRMkpDJp6VL0XzlWaCHTXrkFURMYmD0sLqg=="],
 

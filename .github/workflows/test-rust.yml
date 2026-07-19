@@ -53,9 +53,16 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && !github.event.repository.private }}
+      # actions/checkout uses HTTPS + GITHUB_TOKEN, which works on GitHub-hosted runners even for
+      # private repos. The manual SSH checkout below is only viable on self-hosted runners (which
+      # carry an SSH deploy key and a persistent workspace), so the split keys off the actual
+      # runner environment, NOT repository visibility: a private repo forced onto a hosted runner
+      # via `github_hosted_runner`/`runs_on` has no SSH key and must take the actions/checkout path.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
         uses: actions/checkout@v7.0.0
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event.repository.private }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment == 'self-hosted' }}
+        # Branch names are attacker-controlled script-injection sources, so they reach the
+        # shell only via env and are always quoted.
         run: |
           if [[ ! -d .git ]]; then
             git init --initial-branch=main
@@ -64,15 +71,19 @@ jobs:
           fi
 
           git remote set-url origin git@github.com:${{ github.repository }}.git || git remote add origin git@github.com:${{ github.repository }}.git
-          git fetch --depth 1 origin ${{ github.head_ref || github.ref_name }}
+          # The refs/heads/ prefix keeps an option-like branch name (e.g. `--help`) from being
+          # parsed as a git option.
+          git fetch --depth 1 origin "refs/heads/$HEAD_REF"
 
           git reset --hard
           git clean -fdX
-          if ! git checkout -B ${{ github.head_ref || github.ref_name }} origin/${{ github.head_ref || github.ref_name }}; then
+          if ! git checkout -B "$HEAD_REF" "origin/$HEAD_REF"; then
             git clean -fdx
-            git checkout -B ${{ github.head_ref || github.ref_name }} origin/${{ github.head_ref || github.ref_name }}
+            git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
           fi
-          git reset --hard origin/${{ github.head_ref || github.ref_name }}
+          git reset --hard "origin/$HEAD_REF"
+        env:
+          HEAD_REF: ${{ github.head_ref || github.ref_name }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Set up rustup
         # Self-hosted runners may not have rustup; install it once into the persistent home directory.
