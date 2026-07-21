@@ -11,7 +11,7 @@
     "format": "sort-package-json",
     "pre-push": "echo 'start pre-push'; sleep 60; bun run sync",
     "prepare": "lefthook install || true",
-    "sync": "one-way-git-sync -v -i node_modules -i renovate.json -d git@github.com:WillBoosterLab/reusable-workflows.git",
+    "sync": "one-way-git-sync -v -i node_modules -i renovate.jsonc -d git@github.com:WillBoosterLab/reusable-workflows.git",
     "sync-force": "bun run sync --force",
     "verify": "bun node_modules/@willbooster/wb/bin/index.js verify",
     "verify-full": "bun node_modules/@willbooster/wb/bin/index.js verify --full"

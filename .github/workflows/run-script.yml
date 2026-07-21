@@ -73,8 +73,6 @@ on:
         required: false
       GH_TOKEN:
         required: false
-      GH_PKG_READ_TOKEN:
-        required: false
       VERDACCIO_TOKEN:
         description: auth token for the private Verdaccio registry (used to generate .npmrc)
         required: false
@@ -85,8 +83,10 @@ jobs:
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       FORCE_COLOR: 3
-      # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
-      FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+      # FNOX_AGE_KEY is deliberately NOT job-wide: like VERDACCIO_TOKEN, it is provided
+      # step-scoped only to the steps that actually run fnox (the check-fnox-secrets action and
+      # the consumer script steps), so dependency lifecycle scripts run by the installs and the
+      # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
@@ -160,6 +160,9 @@ jobs:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Ensure fnox secrets are resolvable
         uses: WillBooster/reusable-workflows/.github/actions/check-fnox-secrets@main
+        env:
+          # Empty when the caller does not provide the secret, which keeps fnox-less consumers unaffected.
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       - name: Show environment information
         id: env-info
         run: |
@@ -235,6 +238,34 @@ jobs:
               echo '/.npmrc' >> .git/info/exclude
             fi
           fi
+      # Yarn Berry loads `.yarnrc.yml` plugins during every yarn command, including the
+      # credentialed install below, so a repository-committed plugin is config-driven code
+      # execution that can read the step-scoped VERDACCIO_TOKEN (#453). Strip the top-level
+      # `plugins:` block for the credentialed install only and restore the original file
+      # right after it, so plugins still apply to the tokenless lifecycle replay. Residual
+      # risk (out of scope here): the committed yarnPath release in .yarn/releases/ also
+      # executes during the credentialed install.
+      - if: ${{ env.HAS_VERDACCIO_TOKEN == 'true' && steps.env-info.outputs.runner != 'bun' && steps.env-info.outputs.skip-scripts-option != '--ignore-scripts' }}
+        name: Remove plugins from .yarnrc.yml for the credentialed install
+        run: |
+          if [[ ! -f .yarnrc.yml ]]; then exit 0; fi
+          : # Recover the committed content a crashed previous run may have left sanitized
+          : # (the always() restore cannot run when the runner dies, and persistent
+          : # self-hosted workspaces keep the worktree between runs).
+          if git ls-files --error-unmatch -- .yarnrc.yml > /dev/null 2>&1; then
+            git checkout -- .yarnrc.yml 2> /dev/null || true
+          fi
+          YARNRC_BACKUP=$(mktemp "$RUNNER_TEMP/yarnrc.XXXXXX")
+          cp .yarnrc.yml "$YARNRC_BACKUP"
+          echo "YARNRC_BACKUP=$YARNRC_BACKUP" >> "$GITHUB_ENV"
+          : # Drop the top-level `plugins:` block (from `plugins:` up to the next top-level
+          : # key; column-0 comments do not end the block); keep every other line untouched.
+          YARNRC_TMP=$(mktemp "$RUNNER_TEMP/yarnrc-sanitized.XXXXXX")
+          awk '/^plugins:/ { skip = 1; next } skip && /^[^[:space:]#]/ { skip = 0 } !skip' "$YARNRC_BACKUP" > "$YARNRC_TMP"
+          : # Replace with mv instead of writing into the file, so a committed symlink cannot
+          : # redirect the write (the .npmrc generation pattern).
+          rm -f .yarnrc.yml
+          mv "$YARNRC_TMP" .yarnrc.yml
       # With a Verdaccio token, resolve and download with lifecycle scripts disabled so
       # repository- or dependency-defined preinstall/postinstall can never read the step-scoped
       # VERDACCIO_TOKEN (#449); the tokenless step below replays the skipped scripts.
@@ -253,8 +284,16 @@ jobs:
             ${{ steps.env-info.outputs.runner }} install
           fi
         env:
-          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+      # always(): the original .yarnrc.yml must come back even when the credentialed
+      # install fails, both for the tokenless lifecycle replay below and so the sanitized
+      # file can never be committed by later steps or outlive the job on persistent
+      # self-hosted workspaces (YARNRC_BACKUP is only set when the step above sanitized).
+      - if: ${{ always() && env.YARNRC_BACKUP }}
+        name: Restore the original .yarnrc.yml
+        run: |
+          rm -f .yarnrc.yml
+          mv "$YARNRC_BACKUP" .yarnrc.yml
       # Replay the lifecycle scripts the credentialed install skipped, in an environment without
       # VERDACCIO_TOKEN (the job-level empty value keeps ${VERDACCIO_TOKEN} references in
       # .npmrc/.yarnrc.yml expanding to '' instead of erroring). Every package is already in the
@@ -277,12 +316,12 @@ jobs:
             fi
             ${{ steps.env-info.outputs.runner }} install
           fi
-        env:
-          GH_PKG_READ_TOKEN: ${{ secrets.GH_PKG_READ_TOKEN }}
 
       - name: Run "common/ci-setup" npm script if exists
         run: if [[ "$(cat package.json)" == *'"common/ci-setup":'* ]]; then ${{ steps.env-info.outputs.runner }} run common/ci-setup; fi
         env:
+          # Consumer hooks load env vars through wb/fnox (step-scoped; see the fnox check step above).
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           # Consumer hooks may install private packages (e.g. `bunx @willbooster-private/...`),
           # which expand ${VERDACCIO_TOKEN} from the generated .npmrc at run time.
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
@@ -299,6 +338,9 @@ jobs:
         env:
           COMMAND: ${{ inputs.command }}
           COMMAND_ARGS: ${{ inputs.command_args }}
+          # The consumer script loads env vars through wb/fnox (step-scoped; see the fnox check
+          # step above).
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           # Consumer maintenance scripts may install private packages (e.g. `bunx
           # @willbooster-private/...`), which expand ${VERDACCIO_TOKEN} from the generated .npmrc.
