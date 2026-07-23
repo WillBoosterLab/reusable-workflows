@@ -22,22 +22,18 @@ jobs:
     env:
       FORCE_COLOR: 3
     steps:
-      # To trigger other workflows when running 'git push'
-      - name: Checkout code with git
-        # Branch names are attacker-controlled script-injection sources, so they reach the
-        # shell only via env and are always quoted.
-        run: |
-          rm -rf .git
-          rm -rf ./*
-          rm -rf .[^.]*
-          git init --initial-branch=main
-          git remote add origin git@github.com:${{ github.repository }}.git
-          # The refs/heads/ prefix and the -B form keep an option-like branch name (e.g. `--help`)
-          # from being parsed as a git option.
-          git fetch origin "refs/heads/$HEAD_REF"
-          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
-        env:
-          HEAD_REF: ${{ github.head_ref || github.ref_name }}
+      # A crashed run of any install-capable workflow on this shared persistent workspace can
+      # leave a tracked .npmrc modified and skip-worktree'd (see their .npmrc generation steps);
+      # actions/checkout does not clear skip-worktree bits and can fail on them.
+      - name: Clear stale skip-worktree bits left by a crashed previous run
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
+      # actions/checkout authenticates over HTTPS with GITHUB_TOKEN (no SSH deploy key).
+      # one-way-git-sync needs the full history of the synced branch, hence fetch-depth: 0;
+      # the sync destination is reached via the DEST_GIT_URL secret, not this checkout.
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:

@@ -53,37 +53,19 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      # actions/checkout uses HTTPS + GITHUB_TOKEN, which works on GitHub-hosted runners even for
-      # private repos. The manual SSH checkout below is only viable on self-hosted runners (which
-      # carry an SSH deploy key and a persistent workspace), so the split keys off the actual
-      # runner environment, NOT repository visibility: a private repo forced onto a hosted runner
-      # via `github_hosted_runner`/`runs_on` has no SSH key and must take the actions/checkout path.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
-        uses: actions/checkout@v7.0.0
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment == 'self-hosted' }}
-        # Branch names are attacker-controlled script-injection sources, so they reach the
-        # shell only via env and are always quoted.
+      # Fork pull-request code must never execute on persistent self-hosted runners: Cargo
+      # build scripts and tests would run attacker-controlled code with a persistent workspace.
+      # Route fork PRs onto ephemeral runners via github_hosted_runner/runs_on instead.
+      - if: ${{ runner.environment == 'self-hosted' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        name: Reject fork pull requests on self-hosted runners
         run: |
-          if [[ ! -d .git ]]; then
-            git init --initial-branch=main
-          else
-            rm -f .git/shallow.lock
-          fi
-
-          git remote set-url origin git@github.com:${{ github.repository }}.git || git remote add origin git@github.com:${{ github.repository }}.git
-          # The refs/heads/ prefix keeps an option-like branch name (e.g. `--help`) from being
-          # parsed as a git option.
-          git fetch --depth 1 origin "refs/heads/$HEAD_REF"
-
-          git reset --hard
-          git clean -fdX
-          if ! git checkout -B "$HEAD_REF" "origin/$HEAD_REF"; then
-            git clean -fdx
-            git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
-          fi
-          git reset --hard "origin/$HEAD_REF"
-        env:
-          HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          echo '::error::Fork pull requests are not supported on persistent self-hosted runners.'
+          exit 1
+      # actions/checkout authenticates over HTTPS with GITHUB_TOKEN on both hosted and
+      # self-hosted runners, so self-hosted runners need no SSH deploy key. This workflow never
+      # pushes, so the default ref (the pull-request merge ref) is checked out everywhere.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        uses: actions/checkout@v7.0.0
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Set up rustup
         # Self-hosted runners may not have rustup; install it once into the persistent home directory.
