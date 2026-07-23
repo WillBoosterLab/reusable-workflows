@@ -448,8 +448,17 @@ jobs:
           # credentials are in the environment (shared#1003).
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write
+          # Pin the DEFAULT publish registry back to npmjs: the generated .npmrc may point
+          # `registry=` at the Takumi Guard proxy, which is an install-side cache that rejects
+          # `npm publish` with 405; semantic-release's npm plugin resolves the registry as
+          # `publishConfig.registry || env.NPM_CONFIG_REGISTRY || rc(.npmrc)`, so packages
+          # publishing to Verdaccio (which declare publishConfig.registry) are unaffected.
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
           # semantic-release's npm plugin reads the NPM_TOKEN env var for registry auth.
           NPM_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+          # Takumi Guard is an install proxy, not a publish registry. publishConfig.registry
+          # still takes precedence for packages intentionally published elsewhere.
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
           # The release script's npm invocations expand these tokens from the generated .npmrc.
           TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
