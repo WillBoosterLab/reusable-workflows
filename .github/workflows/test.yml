@@ -72,6 +72,15 @@ jobs:
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
+      # Same rejection as the test job below, and for the same reason: this job checks out the
+      # pull-request merge ref and its `npx -y semver` fallback executes a package resolved via
+      # the checked-out workspace's .npmrc, so fork-controlled code could otherwise run on a
+      # persistent self-hosted runner before the test job's rejection fires.
+      - if: ${{ runner.environment == 'self-hosted' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        name: Reject fork pull requests on self-hosted runners
+        run: |
+          echo '::error::Fork pull requests are not supported on persistent self-hosted runners.'
+          exit 1
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
