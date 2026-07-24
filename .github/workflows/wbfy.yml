@@ -1,0 +1,261 @@
+name: Willboosterify
+
+# Applies wbfy (@willbooster/wbfy) to the calling repository itself and force-pushes the result
+# to the `wbfy` branch. This replaces the legacy nightly fan-out in WillBooster/self-host-utils,
+# which cloned and pushed every repository with an SSH key installed on a self-hosted machine —
+# each repository now runs its own scheduled caller with a repository/organization-scoped PAT
+# instead. Downstream PR creation/merging (wbfy-merge) is unchanged: it picks up the pushed
+# `wbfy` branch as before.
+#
+# Two jobs on purpose: the wbfy job executes dependency code (wbfy itself plus the repository's
+# dependency lifecycle scripts via wbfy's `bun install`), which could poison $GITHUB_PATH /
+# $GITHUB_ENV for LATER STEPS of the same job (e.g. a fake `git` on PATH, BASH_ENV, LD_PRELOAD)
+# — so no step of that job may ever hold the push PAT. Job boundaries reset that state, so the
+# push job receives the PAT and runs only trusted code (checkout + git), taking the wbfy result
+# as an inert patch artifact.
+on:
+  workflow_call:
+    inputs:
+      ci_label:
+        default: medium
+        required: false
+        type: string
+      cpu_arch:
+        required: false
+        type: string
+      github_hosted_runner:
+        required: false
+        type: boolean
+      runs_on:
+        required: false
+        type: string
+      target_organization:
+        required: false
+        type: string
+    secrets:
+      WBFY_GH_TOKEN:
+        description: >-
+          PAT with contents:write and workflow scope, used ONLY by the push job. It must be a PAT
+          because wbfy regenerates files under .github/workflows/ and GitHub rejects a
+          GITHUB_TOKEN push whose commit touches workflow files — the push is atomic, so in that
+          (common) case NOTHING would be pushed; a PAT push also triggers the test workflows on
+          the wbfy branch, which a GITHUB_TOKEN push would not. The push job fails loudly when
+          the secret is missing. Register it as an organization secret (WillBooster) or let
+          `wbfy --env` provision it per repository (WillBoosterLab).
+        required: false
+      VERDACCIO_TOKEN:
+        description: auth token for the private Verdaccio registry (used to generate .npmrc)
+        required: false
+
+concurrency:
+  group: wbfy-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  wbfy:
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
+    # Unlike the sibling workflows' runner idiom, `!github.event.repository.private` is guarded
+    # with `github.event_name != 'schedule'`: this workflow's primary trigger is a schedule, whose
+    # event payload does not reliably carry `repository`, so the expression must not decide the
+    # runner from it. Scheduled runs therefore go to self-hosted unless the caller opts into
+    # `github_hosted_runner: true` (which wbfy generates for public repositories).
+    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || (((github.event_name != 'schedule' && !github.event.repository.private) || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    timeout-minutes: 30
+    outputs:
+      base-sha: ${{ steps.apply.outputs.base-sha }}
+      has-changes: ${{ steps.apply.outputs.has-changes }}
+    env:
+      FORCE_COLOR: 3
+      HAS_VERDACCIO_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN }}
+      # Defined-but-empty default: the generated .npmrc references ${VERDACCIO_TOKEN}, and steps
+      # that are not given the secret still need the variable to exist while the file is on disk.
+      VERDACCIO_TOKEN: ''
+    steps:
+      # A crashed run of any install-capable workflow on this shared persistent workspace can
+      # leave a tracked .npmrc modified and skip-worktree'd; actions/checkout does not clear
+      # skip-worktree bits and can fail on them.
+      - name: Clear stale skip-worktree bits left by a crashed previous run
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
+      # No credential is persisted on purpose: this job runs dependency code, which must never be
+      # able to push with a persisted credential (the caller grants only contents: read anyway).
+      # The wbfy branch is always generated from the DEFAULT branch: a schedule runs there by
+      # definition (default_branch is empty in its payload, making checkout use the event ref),
+      # while a manual workflow_dispatch may target any branch — without the pin, dispatching from
+      # a feature branch would carry all of that branch's commits into the force-pushed `wbfy`
+      # branch, which the downstream wbfy-merge process could then propose for main.
+      - uses: actions/checkout@v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Check version files
+        id: check-ver
+        run: |
+          if [[ -f .tool-versions || -f mise.toml || -f .node-version || -f .python-version ]]; then
+            echo "exist-any-version=1" >> $GITHUB_OUTPUT
+          fi
+          if ([[ -f .tool-versions ]] && grep -qE '^bun[[:space:]]' .tool-versions) || \
+             ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml); then
+            echo "exist-bun-version=1" >> $GITHUB_OUTPUT
+          fi
+      # wbfy itself runs `bun add` / `bun install`, so Bun must exist even in a repository that
+      # does not pin it yet (e.g. a first wbfy run on an unmigrated repository).
+      - if: ${{ !steps.check-ver.outputs.exist-bun-version }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
+        name: Setup isolated GPG home
+        run: |
+          GNUPGHOME="$(mktemp -d "$RUNNER_TEMP/gnupg.XXXXXX")"
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+      - if: ${{ steps.check-ver.outputs.exist-any-version }}
+        uses: jdx/mise-action@v4.2.1
+        with:
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
+      # wbfy requires Node >= 24 (its `engines` constraint; it uses ES2024 APIs such as
+      # Object.groupBy at runtime), so the current LTS is put on PATH AFTER mise: a
+      # repository-pinned older Node must not run wbfy itself. This matches the legacy nightly,
+      # which ran wbfy via `mise x node@lts` on top of the repository's tools.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          check-latest: true
+          node-version: lts/*
+      # ${VERDACCIO_TOKEN} is written literally; bun expands it from the environment at install
+      # time, so no plaintext token lands on disk. wbfy's own `bun install` (lockfile refresh /
+      # linker probe) needs it in repositories depending on @willbooster-private/* packages.
+      # Unlike the install-capable workflows there is no scripts-disabled install + tokenless
+      # replay here: wbfy drives its installs itself, so the token is exposed to dependency
+      # lifecycle scripts for the duration of the "Apply wbfy" step — the same exposure the
+      # legacy self-hosted nightly had via the machine-wide ~/.npmrc.
+      - if: ${{ env.HAS_VERDACCIO_TOKEN == 'true' }}
+        name: Generate .npmrc for the private Verdaccio registry
+        run: |
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
+            git checkout -- .npmrc 2> /dev/null || true
+          fi
+          NPMRC_TMP=$(mktemp "$RUNNER_TEMP/npmrc.XXXXXX")
+          if [[ -e .npmrc ]]; then
+            grep -vE '^@willbooster-private:registry|^//verdaccio-production-e389\.up\.railway\.app/:_authToken' .npmrc > "$NPMRC_TMP" || true
+            : # Some grep implementations do not add the final newline missing from the last line.
+            if [[ -s "$NPMRC_TMP" && -n "$(tail -c1 "$NPMRC_TMP")" ]]; then echo >> "$NPMRC_TMP"; fi
+          fi
+          echo '@willbooster-private:registry=https://verdaccio-production-e389.up.railway.app/' >> "$NPMRC_TMP"
+          echo '//verdaccio-production-e389.up.railway.app/:_authToken=${VERDACCIO_TOKEN}' >> "$NPMRC_TMP"
+          : # Replace .npmrc with mv instead of writing into it, so a consumer-committed symlink
+          : # cannot redirect the managed lines into its target.
+          rm -f .npmrc
+          mv "$NPMRC_TMP" .npmrc
+          : # Ignore rules never hide tracked files, so hide a committed .npmrc from the
+          : # diff below with skip-worktree; untracked files get a root-scoped exclude entry.
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --skip-worktree -- .npmrc
+          else
+            if ! grep -qxF '/.npmrc' .git/info/exclude 2>/dev/null; then
+              if [[ -s .git/info/exclude && -n "$(tail -c1 .git/info/exclude)" ]]; then echo >> .git/info/exclude; fi
+              echo '/.npmrc' >> .git/info/exclude
+            fi
+          fi
+      # Deliberately credential-minimal: this step executes wbfy and, through it, dependency
+      # lifecycle scripts, so it only receives the repository-scoped ephemeral GITHUB_TOKEN,
+      # which the generated caller restricts to contents: read. wbfy's GitHub-side setup
+      # (settings/labels/rulesets) degrades to warnings where that token lacks permission; the
+      # result leaves this job only as an inert patch artifact for the push job.
+      - name: Apply wbfy
+        id: apply
+        run: |
+          echo "base-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          wbfy_version=$(npm show @willbooster/wbfy version)
+          npx --yes "@willbooster/wbfy@$wbfy_version" --version
+          wbfy_status=0
+          npx --yes "@willbooster/wbfy@$wbfy_version" . || wbfy_status=$?
+          if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+            if [[ "$wbfy_status" -ne 0 ]]; then
+              echo "::warning::Continuing despite wbfy failure. wbfy=$wbfy_status"
+            fi
+            git add -A
+            git diff --cached --binary --full-index > "$RUNNER_TEMP/wbfy.patch"
+            echo "has-changes=1" >> $GITHUB_OUTPUT
+          elif [[ "$wbfy_status" -ne 0 ]]; then
+            exit "$wbfy_status"
+          fi
+        env:
+          # wbfy resolves its GitHub token from GH_BOT_PAT_FOR_<ORG> (Octokit for repository
+          # settings/labels/rulesets) with a `gh auth token` fallback that also honors GH_TOKEN.
+          GH_BOT_PAT_FOR_WILLBOOSTER: ${{ github.token }}
+          GH_BOT_PAT_FOR_WILLBOOSTERLAB: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          HUSKY: 0
+          LEFTHOOK: 0
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+      - if: ${{ steps.apply.outputs.has-changes }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: wbfy-patch
+          path: ${{ runner.temp }}/wbfy.patch
+          retention-days: 1
+          if-no-files-found: error
+      # Revert the generate step: remove the file when this run created it, or restore the
+      # committed content and clear the skip-worktree bit when the consumer tracks .npmrc; the
+      # `.git` mutations otherwise outlive the job on persistent self-hosted workspaces.
+      - if: ${{ always() && env.HAS_VERDACCIO_TOKEN == 'true' }}
+        name: Clean up the generated .npmrc
+        run: |
+          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
+            git checkout -- .npmrc 2> /dev/null || true
+          else
+            rm -f .npmrc
+            if [[ -f .git/info/exclude ]]; then
+              : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
+              grep -vxF -- '/.npmrc' .git/info/exclude > .git/info/exclude.tmp || true
+              mv .git/info/exclude.tmp .git/info/exclude
+            fi
+          fi
+
+  # Runs only trusted code (checkout + git); the wbfy job's dependency code cannot reach this
+  # job's environment (job boundaries reset $GITHUB_PATH / $GITHUB_ENV), so the push PAT is safe
+  # here even though it must never appear in the wbfy job.
+  push:
+    needs: wbfy
+    if: ${{ needs.wbfy.outputs.has-changes }}
+    # ALWAYS a GitHub-hosted (ephemeral) runner, never the self-hosted pool: on a persistent
+    # self-hosted machine the wbfy job's dependency code can poison MACHINE state that survives
+    # job boundaries (e.g. a global git core.fsmonitor hook would execute during this job's `git
+    # add` with the PAT in the environment), so the environment reset alone is not isolation.
+    # The job runs for seconds and only when there are changes, so the hosted-runner cost for
+    # private repositories is negligible.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The exact commit the patch was generated against, so the default branch advancing between
+      # the two jobs cannot make the patch fail to apply.
+      - uses: actions/checkout@v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ needs.wbfy.outputs.base-sha }}
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: wbfy-patch
+          path: ${{ runner.temp }}/wbfy-patch
+      - name: Push the wbfy branch
+        run: |
+          if [[ -z "$PUSH_TOKEN" ]]; then
+            echo '::error::The WBFY_GH_TOKEN secret is missing. Register it as an organization secret (WillBooster) or run `wbfy --env` (WillBoosterLab); a GITHUB_TOKEN push cannot touch the workflow files wbfy regenerates.'
+            exit 1
+          fi
+          git apply --binary --whitespace=nowarn "$RUNNER_TEMP/wbfy-patch/wbfy.patch"
+          git add -A
+          : # The explicit identity keeps the commit author deterministic across GitHub-hosted
+          : # and self-hosted runners (whose global git config may differ).
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "chore: willboosterify this repo" --no-verify
+          : # The credential is passed per-invocation via -c so nothing is persisted in
+          : # .git/config on persistent self-hosted workspaces.
+          AUTH=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push origin HEAD:refs/heads/wbfy --force --no-verify
+          echo "Pushed: https://github.com/$GITHUB_REPOSITORY/tree/wbfy"
+        env:
+          PUSH_TOKEN: ${{ secrets.WBFY_GH_TOKEN }}
