@@ -300,6 +300,26 @@ jobs:
             }
           fi
 
+      # See the identically named step in test.yml for the full rationale: a lockfile-updating
+      # install under the Guard .npmrc rewrites already-locked packages' `resolved` URLs to the
+      # proxy, and committing those pins a shared lockfile to one environment's mirror (breaking
+      # cold-cache installs with 401 for anyone holding a registry.npmjs.org token). Guard still
+      # covers every download through the configured registry when `resolved` is empty, and the
+      # `", ` anchor keeps a direct tarball dependency's descriptor and package tuple intact.
+      - if: ${{ env.HAS_TAKUMI_GUARD_TOKEN == 'true' }}
+        name: Keep the Takumi Guard proxy out of the committed lockfile
+        run: |
+          if [[ ! -f bun.lock ]]; then exit 0; fi
+          NORMALIZED=$(mktemp "$RUNNER_TEMP/bun-lock.XXXXXX")
+          sed -E 's#(", )"https://npm\.flatt\.tech/[^"]*"#\1""#g' bun.lock > "$NORMALIZED"
+          if cmp -s bun.lock "$NORMALIZED"; then
+            rm -f "$NORMALIZED"
+          else
+            rm -f bun.lock
+            mv "$NORMALIZED" bun.lock
+            echo "Rewrote Takumi Guard proxy URLs in bun.lock back to the registry-agnostic form."
+          fi
+
       - name: Fix code
         run: |
           if grep -q '"gen-code":' package.json; then

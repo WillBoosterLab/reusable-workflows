@@ -1,0 +1,40 @@
+name: Apply autofix patch
+description: >-
+  Validates an autofix patch produced by an untrusted pull-request job and commits it onto the
+  pull request head. The commit target is taken from the caller's inputs (which the apply workflow
+  derives from the workflow_run event), never from the patch file, so a compromised dependency
+  cannot redirect the write.
+inputs:
+  patch_file:
+    description: Path to the downloaded autofix.json.
+    required: true
+  app_token:
+    description: Installation token scoped to this repository with contents:write.
+    required: true
+  repository:
+    description: owner/repo to commit into.
+    required: true
+  branch:
+    description: Branch to commit onto.
+    required: true
+  expected_head_oid:
+    description: >-
+      Commit the branch must currently point at. Passed to createCommitOnBranch so a concurrent
+      push makes the mutation fail instead of overwriting that work.
+    required: true
+  commit_message:
+    description: Headline for the created commit.
+    default: 'fix: apply changes of autofix workflow'
+runs:
+  using: composite
+  steps:
+    - name: Validate and commit the patch
+      shell: bash
+      env:
+        PATCH_FILE: ${{ inputs.patch_file }}
+        APP_TOKEN: ${{ inputs.app_token }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH: ${{ inputs.branch }}
+        EXPECTED_HEAD_OID: ${{ inputs.expected_head_oid }}
+        COMMIT_MESSAGE: ${{ inputs.commit_message }}
+      run: node "$GITHUB_ACTION_PATH/apply.mjs"

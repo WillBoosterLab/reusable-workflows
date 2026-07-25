@@ -1,0 +1,39 @@
+name: Upload autofix patch
+description: >-
+  Snapshots the working-tree changes left behind by the repository's fixers (gen-code, cleanup,
+  lint-fix, build) into a single JSON artifact for the separate apply workflow to commit. This
+  runs in the job that installed and executed the pull request's own dependencies, so it must NOT
+  hold any write credential: the whole point of the split is that the privileged commit happens
+  elsewhere, in a job that never executes repository code.
+inputs:
+  exclude_paths:
+    description: Newline-separated repository-relative paths to omit from the patch.
+    default: ''
+  expected_head_sha:
+    description: >-
+      The pull request head the patch will be committed onto. When the working tree sits on a
+      different commit (a hosted run checks out the merge ref), no patch is produced, because the
+      resulting file contents would not correspond to that head.
+    default: ''
+outputs:
+  has_patch:
+    description: '"true" when a patch artifact was uploaded.'
+    value: ${{ steps.collect.outputs.has_patch }}
+runs:
+  using: composite
+  steps:
+    - id: collect
+      name: Collect the fixers' changes
+      shell: bash
+      env:
+        EXCLUDE_PATHS: ${{ inputs.exclude_paths }}
+        EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+      run: node "$GITHUB_ACTION_PATH/collect.mjs"
+    - if: ${{ steps.collect.outputs.has_patch == 'true' }}
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: autofix-patch
+        path: ${{ steps.collect.outputs.patch_directory }}/autofix.json
+        # The patch is consumed by the apply workflow that this run triggers, so it never needs to
+        # outlive that handoff.
+        retention-days: 1
