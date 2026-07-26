@@ -143,10 +143,9 @@ jobs:
       VERDACCIO_TOKEN: ''
       WB_ENV: ${{ inputs.environment || 'test' }}
     strategy:
-      # Required by the single-leg autofix upload below: the reporting step fails on EVERY leg
-      # whenever the fixers changed something, so with the default fail-fast a faster sibling leg
-      # would cancel leg 0 before it uploaded the patch, losing the fix at random. Only multi-leg
-      # matrices are affected at all, which is exactly the case this protects.
+      # The reporting step fails on EVERY leg whenever the fixers changed something; with the
+      # default fail-fast a faster sibling leg would cancel the others before their diff was
+      # reported. Only multi-leg matrices are affected at all.
       fail-fast: false
       matrix:
         # c.f. https://github.community/t/reusable-workflow-with-strategy-matrix/205676
@@ -173,9 +172,9 @@ jobs:
           exit 1
       # persist-credentials: false because this job installs and runs the pull request's own
       # dependencies: a persisted GITHUB_TOKEN sits in .git/config for the whole job, where any
-      # lifecycle script can read it. Nothing here pushes any more — autofix-apply.yml performs
-      # the commit from a separate job — so the credential has no remaining use. (Same reasoning,
-      # and the same setting, as the privileged split in wbfy.yml.)
+      # lifecycle script can read it. Nothing here pushes any more — fixes are reported as a diff
+      # for a developer or agent to apply — so the credential has no remaining use. (Same
+      # reasoning, and the same setting, as the privileged split in wbfy.yml.)
       # This removes the PUSH credential only. The caller-supplied GH_TOKEN is still handed,
       # step-scoped, to the steps that run the consumer's test and release-test scripts, so code
       # those scripts invoke can still read it; narrowing that is a separate change to the caller
@@ -500,8 +499,8 @@ jobs:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       # When an install has to UPDATE bun.lock while the generated .npmrc points the default
       # registry at Takumi Guard, bun rewrites the `resolved` URL of every ALREADY-LOCKED package
-      # to https://npm.flatt.tech/… (newly added packages correctly keep ""). The autofix step
-      # below would then commit those URLs, pinning a shared lockfile to one environment's mirror:
+      # to https://npm.flatt.tech/… (newly added packages correctly keep ""). The fixer steps
+      # below would then report those URLs as a fix to apply, pinning a shared lockfile to one environment's mirror:
       # a cold-cache `bun install` afterwards downloads from the proxy on every machine, and fails
       # outright with 401 for anyone whose npmrc carries a registry.npmjs.org token, because bun
       # attaches the DEFAULT registry's credentials to the lockfile URL regardless of its host and
@@ -550,29 +549,11 @@ jobs:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           HUSKY: 0
           LEFTHOOK: 0
-      # Hand the fixers' output to the separate apply workflow instead of committing from here.
-      # This job just installed and executed the pull request's own dependencies, so it must hold
-      # no write credential; autofix-apply.yml performs the privileged commit in a job that runs
-      # no repository code. The dotenv file is excluded because a secret written over a tracked
-      # file must never be committed.
-      # Only the first matrix leg uploads: every leg runs the same fixers and would upload the same
-      # artifact name, which fails the second leg with a conflict instead of showing its diff. The
-      # reporting step below still runs on every leg, so the diff stays visible everywhere.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event_name == 'pull_request' && strategy.job-index == 0 }}
-        id: autofix-patch
-        uses: WillBooster/reusable-workflows/.github/actions/upload-autofix-patch@main
-        with:
-          exclude_paths: ${{ env.HAS_DOT_ENV == 'true' && inputs.dot_env_path || '' }}
-          expected_head_sha: ${{ github.event.pull_request.head.sha }}
-      # Always red when the fixers changed something, on every runner and event: the apply
-      # workflow turns the pull request green by pushing the fix, and a run with no apply workflow
-      # (a push to a branch, or a caller that has not adopted it yet) still surfaces the diff.
-      # The collector's own failure (it refuses .github/** changes) is added explicitly rather
-      # than using a bare !cancelled(): any status-check function drops the implicit success(),
-      # which would also run this step after an unrelated failure — an aborted install that left
-      # a rewritten lockfile behind would then report a nonexistent formatting problem on top of
-      # the real error.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && (success() || steps.autofix-patch.outcome == 'failure') }}
+      # Always red when the fixers changed something: nothing commits fixes automatically (the
+      # App-based autofix-apply flow is retired), so the diff below is the deliverable — a
+      # developer or agent applies it and pushes. This job installed and executed the pull
+      # request's own dependencies, so it holds no write credential either way.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Report code fixed by the previous steps
         run: |
           excludes=()
