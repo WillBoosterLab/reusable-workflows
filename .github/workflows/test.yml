@@ -174,7 +174,7 @@ jobs:
       # dependencies: a persisted GITHUB_TOKEN sits in .git/config for the whole job, where any
       # lifecycle script can read it. Nothing here pushes any more — fixes are reported as a diff
       # for a developer or agent to apply — so the credential has no remaining use. (Same
-      # reasoning, and the same setting, as the privileged split in wbfy.yml.)
+      # reasoning as the retired privileged-split workflows.)
       # This removes the PUSH credential only. The caller-supplied GH_TOKEN is still handed,
       # step-scoped, to the steps that run the consumer's test and release-test scripts, so code
       # those scripts invoke can still read it; narrowing that is a separate change to the caller
@@ -679,34 +679,3 @@ jobs:
           fi
           : # port
           npx --yes kill-port@latest 3000 > /dev/null &
-  # A run started by the push-back's workflow_dispatch does not attach to pull-request checks,
-  # so surface the aggregate result as a commit status on the tested commit
-  # (https://toranoana-lab.hatenablog.com/entry/2025/08/20/100000). This is a separate
-  # non-matrix job on purpose: per-leg statuses would share one (sha, context) key, letting a
-  # later successful leg overwrite an earlier failure, and needs+always() still reports when a
-  # prerequisite job fails (a skipped test job would otherwise leave no status at all).
-  # Requires the caller to grant statuses:write; tolerate its absence.
-  report-status:
-    needs: [pre, detect-node-version-matrix, test]
-    # `needs.pre.result != 'skipped'` keeps a failing `pre` reportable while an intentionally
-    # disabled run (e.g. a target_organization mismatch skips `pre` entirely) posts no status.
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.pre.result != 'skipped' && needs.pre.outputs.should_skip != 'true' }}
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
-    steps:
-      - name: Report commit status
-        run: |
-          STATE=failure
-          if [[ "$TEST_RESULT" == "success" ]]; then STATE=success; fi
-          : # The JSON is hand-built (this job installs no tools), so escape the
-          : # consumer-controlled workflow name; the other values are shell-safe constants.
-          CONTEXT=$(printf '%s' "$GITHUB_WORKFLOW / test (workflow_dispatch)" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-          curl --fail --show-error --silent \
-            -H "authorization: Bearer $GITHUB_TOKEN" \
-            -H "accept: application/vnd.github+json" \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
-            -d "{\"state\":\"$STATE\",\"target_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\",\"context\":\"$CONTEXT\",\"description\":\"$STATE\"}" || \
-            echo "::warning::Could not report the commit status (missing statuses:write permission)"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          # Aggregated across every matrix leg: success only when all legs succeeded.
-          TEST_RESULT: ${{ needs.test.result }}
