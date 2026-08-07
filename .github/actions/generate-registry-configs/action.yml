@@ -1,0 +1,134 @@
+name: Generate registry configs
+description: >-
+  Generate workspace registry configs that route installs through the Takumi Guard
+  malicious-package-blocking proxy (https://flatt.tech/takumi/features/guard) and the private
+  Verdaccio registry for EVERY package manager, regardless of which one the repository nominally
+  uses — a repository that installs with bun may still invoke yarn or npm from its tests or
+  scripts. `.npmrc` covers npm, Bun and Yarn 1; `.yarnrc.yml` covers Yarn Berry, which ignores
+  `.npmrc`. Tokens are written as literal ${VAR} references that the package managers expand from
+  the environment at run time, so no plaintext token lands on disk. The files go into the
+  workspace, NOT $HOME: a persistent home config would crash npm/yarn1 in any other job on the
+  same self-hosted runner that leaves the variables undefined. The managed entries are rewritten
+  authoritatively so stale or consumer-committed entries never win over the current tokens, and
+  the files are hidden from git (skip-worktree for tracked files, a root-scoped exclude entry
+  otherwise) so commit-and-push workflows cannot commit them. The Berry `plugins:` block is also
+  stripped for the rest of the job: a repository-committed plugin is config-driven code execution
+  that could read the registry tokens (#453). Stripping is deliberately NOT keyed on which tokens
+  are present: the managed entries are reserved for these workflows, so consumers must not rely on
+  committed default-registry overrides or extra npmScopes during CI. Residual risk, accepted since
+  before this action existed: the repository-controlled yarnPath binary in .yarn/releases/ still
+  executes during the credentialed install and can read the step-scoped tokens. The generated
+  files stay in the workspace until the cleanup step, so nested build contexts created mid-job
+  (docker build, remote builders) see them with the token variables unset: npm/yarn1 crash on the
+  unexpanded ${VAR} reference (pre-existing .npmrc behavior) and Yarn Berry fails closed (YN0033)
+  — consumers installing inside such builds must exclude the generated configs from the build
+  context or inject the tokens. Pair with the cleanup-registry-configs action in an always() step.
+inputs:
+  has-takumi-guard-token:
+    description: >-
+      'true' when the caller holds a TAKUMI_GUARD_TOKEN secret. Routes default-registry installs
+      through the Takumi Guard proxy; scoped registries (e.g. @willbooster-private) deliberately
+      keep their own registry. Guard covers newly RESOLVED public packages: package managers may
+      download already-locked packages from the resolved URL recorded in the lockfile (Yarn 1
+      always does), bypassing the proxy. The proxy also serves anonymously for .npmrc consumers
+      (npm/bun/yarn1 send no auth for an empty token); Yarn Berry, whose generated entry sets
+      npmAlwaysAuth, instead aborts registry requests when the token is empty (YN0033), so
+      tokenless Berry steps must be served by yarn.lock and the cache.
+    default: 'false'
+  has-verdaccio-token:
+    description: >-
+      'true' when the caller holds a VERDACCIO_TOKEN secret. Points the @willbooster-private
+      scope at the private Verdaccio registry.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Generate .npmrc and .yarnrc.yml for the private Verdaccio registry and Takumi Guard
+      shell: bash
+      env:
+        HAS_TAKUMI_GUARD_TOKEN: ${{ inputs.has-takumi-guard-token }}
+        HAS_VERDACCIO_TOKEN: ${{ inputs.has-verdaccio-token }}
+      run: |
+        : # .git is referenced as a literal directory: these actions always run at the root of
+        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file),
+        : # matching the pre-existing dotenv/.npmrc hide pattern in the calling workflows.
+        prepare() {
+          : # Recover state a crashed previous run may have left behind (the always() cleanup
+          : # cannot run when the runner dies): clear a stale skip-worktree bit and restore the
+          : # committed content before regenerating.
+          if git ls-files --error-unmatch -- "$1" > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- "$1" 2> /dev/null || true
+            git checkout -- "$1" 2> /dev/null || true
+          fi
+        }
+        install_and_hide() {
+          : # Replace the target with mv instead of writing into it, so a consumer-committed
+          : # symlink cannot redirect the managed lines into its target (e.g. a home config).
+          rm -f "$2"
+          mv "$1" "$2"
+          : # Ignore rules never hide tracked files, so hide a committed file from the
+          : # commit-and-push workflows with skip-worktree (the dotenv-hide pattern).
+          if git ls-files --error-unmatch -- "$2" > /dev/null 2>&1; then
+            git update-index --skip-worktree -- "$2"
+          elif ! grep -qxF "/$2" .git/info/exclude 2> /dev/null; then
+            : # A persistent exclude file may end without a newline; a direct append would
+            : # merge into its last rule and leave the generated file unhidden.
+            if [[ -s .git/info/exclude && -n "$(tail -c1 .git/info/exclude)" ]]; then echo >> .git/info/exclude; fi
+            echo "/$2" >> .git/info/exclude
+          fi
+        }
+
+        prepare .npmrc
+        NPMRC_TMP=$(mktemp "$RUNNER_TEMP/npmrc.XXXXXX")
+        if [[ -e .npmrc ]]; then
+          grep -vE '^registry=|^//npm\.flatt\.tech/:_authToken|^@willbooster-private:registry|^//verdaccio-production-e389\.up\.railway\.app/:_authToken' .npmrc > "$NPMRC_TMP" || true
+          : # Some grep implementations do not add the final newline missing from the last line.
+          if [[ -s "$NPMRC_TMP" && -n "$(tail -c1 "$NPMRC_TMP")" ]]; then echo >> "$NPMRC_TMP"; fi
+        fi
+        if [[ "$HAS_TAKUMI_GUARD_TOKEN" == 'true' ]]; then
+          echo 'registry=https://npm.flatt.tech/' >> "$NPMRC_TMP"
+          echo '//npm.flatt.tech/:_authToken=${TAKUMI_GUARD_TOKEN}' >> "$NPMRC_TMP"
+        fi
+        if [[ "$HAS_VERDACCIO_TOKEN" == 'true' ]]; then
+          echo '@willbooster-private:registry=https://verdaccio-production-e389.up.railway.app/' >> "$NPMRC_TMP"
+          echo '//verdaccio-production-e389.up.railway.app/:_authToken=${VERDACCIO_TOKEN}' >> "$NPMRC_TMP"
+        fi
+        install_and_hide "$NPMRC_TMP" .npmrc
+
+        prepare .yarnrc.yml
+        YARNRC_TMP=$(mktemp "$RUNNER_TEMP/yarnrc.XXXXXX")
+        if [[ -f .yarnrc.yml ]]; then
+          : # Drop the top-level `plugins:` block (#453) and the managed registry keys rewritten
+          : # below (each block runs up to the next top-level key; column-0 comments do not end
+          : # a block); keep every other line untouched. Exotic-but-valid YAML spellings (quoted
+          : # keys, space before the colon) evade this line filter, but a repository able to
+          : # commit such a file already controls the committed yarnPath binary that runs with
+          : # the same step-scoped tokens (the residual risk accepted in the description), so
+          : # the filter targets honest configs carrying a compromised third-party plugin.
+          awk '/^(plugins|npmRegistryServer|npmRegistries|npmScopes):/ { skip = 1; next } skip && /^[^[:space:]#]/ { skip = 0 } !skip' .yarnrc.yml > "$YARNRC_TMP"
+        fi
+        : # ${VAR-} expands to '' when the variable is unset, so Berry can always parse the
+        : # config. npmAlwaysAuth: Berry only attaches the token to metadata/tarball GETs when
+        : # asked to. With an empty token Berry ABORTS registry requests locally (YN0033)
+        : # instead of falling back to anonymous — a deliberate fail-closed default: tokenless
+        : # steps (e.g. the lifecycle replay) work because resolution is already lockfile- and
+        : # cache-complete, and consumer scripts must rely on the installed graph anyway.
+        if [[ "$HAS_TAKUMI_GUARD_TOKEN" == 'true' ]]; then
+          {
+            echo 'npmRegistryServer: "https://npm.flatt.tech/"'
+            echo 'npmRegistries:'
+            echo '  "https://npm.flatt.tech/":'
+            echo '    npmAuthToken: "${TAKUMI_GUARD_TOKEN-}"'
+            echo '    npmAlwaysAuth: true'
+          } >> "$YARNRC_TMP"
+        fi
+        if [[ "$HAS_VERDACCIO_TOKEN" == 'true' ]]; then
+          {
+            echo 'npmScopes:'
+            echo '  willbooster-private:'
+            echo '    npmRegistryServer: "https://verdaccio-production-e389.up.railway.app/"'
+            echo '    npmAuthToken: "${VERDACCIO_TOKEN-}"'
+            echo '    npmAlwaysAuth: true'
+          } >> "$YARNRC_TMP"
+        fi
+        install_and_hide "$YARNRC_TMP" .yarnrc.yml

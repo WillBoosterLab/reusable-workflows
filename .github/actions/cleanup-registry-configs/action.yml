@@ -1,0 +1,28 @@
+name: Clean up registry configs
+description: >-
+  Revert the generate-registry-configs action: remove the files that run created, or restore the
+  committed content and clear the skip-worktree bits when the consumer tracks them; the `.git`
+  mutations otherwise outlive the job on persistent self-hosted workspaces. Run in an always()
+  step so the credentials never survive a failed job.
+runs:
+  using: composite
+  steps:
+    - name: Clean up the generated .npmrc and .yarnrc.yml
+      shell: bash
+      run: |
+        : # .git is referenced as a literal directory: these actions always run at the root of
+        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file),
+        : # matching the pre-existing dotenv/.npmrc hide pattern in the calling workflows.
+        for FILE in .npmrc .yarnrc.yml; do
+          if git ls-files --error-unmatch -- "$FILE" > /dev/null 2>&1; then
+            git update-index --no-skip-worktree -- "$FILE" 2> /dev/null || true
+            git checkout -- "$FILE" 2> /dev/null || true
+          else
+            rm -f "$FILE"
+          fi
+        done
+        if [[ -f .git/info/exclude ]]; then
+          : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
+          grep -vxF -e '/.npmrc' -e '/.yarnrc.yml' .git/info/exclude > .git/info/exclude.tmp || true
+          mv .git/info/exclude.tmp .git/info/exclude
+        fi

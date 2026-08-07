@@ -45,15 +45,15 @@ on:
       GH_TOKEN:
         required: true
       TAKUMI_GUARD_TOKEN:
-        description: auth token for the Takumi Guard malicious-package-blocking registry proxy (used to generate .npmrc)
+        description: auth token for the Takumi Guard malicious-package-blocking registry proxy (used to generate registry configs)
         required: false
       VERDACCIO_TOKEN:
-        description: auth token for the private Verdaccio registry (used to generate .npmrc)
+        description: auth token for the private Verdaccio registry (used to generate registry configs)
         required: false
 jobs:
   pre:
     # To avoid testing on synced (mirrored) repos.
-    if: ${{ !startsWith(github.head_ref, 'refs/heads/renovate/') && github.head_ref != 'refs/heads/wbfy' && (!inputs.target_organization || github.repository_owner == inputs.target_organization) }}
+    if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
@@ -101,6 +101,11 @@ jobs:
         with:
           check-latest: true
           node-version: lts/*
+      # The npx call below is pinned (see its comment), so the gate protects only any other or
+      # future registry resolution in this job, on runners whose npm honours min-release-age.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Apply the minimum-release-age policy to global package-manager configs
+        uses: WillBooster/reusable-workflows/.github/actions/apply-release-age-gate@main
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: detect-node-version-matrix
         # We must use actions/setup-node if no Node.js description exists in mise-managed files and no .node-version exists.
@@ -110,7 +115,10 @@ jobs:
              ! ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) && \
              ! ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
-            NODE_VERSIONS=$(npx -y semver -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
+            : # Pinned: this job may run with a preinstalled npm < 11.10 that ignores the
+            : # min-release-age gate, and published npm versions are immutable, so a pin removes
+            : # the freshly-resolved-latest exposure the gate cannot cover here.
+            NODE_VERSIONS=$(npx -y semver@7.8.5 -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
@@ -125,15 +133,14 @@ jobs:
       # the consumer script steps), so dependency lifecycle scripts run by the installs and the
       # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
-      # Either registry token triggers the .npmrc generation/cleanup; the hardened install
-      # path (scripts-disabled credentialed install + tokenless lifecycle replay) is instead
-      # keyed on the per-package-manager hardened-install output of the env-info step.
+      # Either registry token triggers the registry-config generation/cleanup and the hardened
+      # install path (scripts-disabled credentialed install + tokenless lifecycle replay).
       HAS_REGISTRY_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.TAKUMI_GUARD_TOKEN }}
       HAS_TAKUMI_GUARD_TOKEN: ${{ !!secrets.TAKUMI_GUARD_TOKEN }}
       HAS_TEST_COMMAND: ${{ !!inputs.custom_test_command }}
       # Non-secret signal for the `if:` gates below; the VERDACCIO_TOKEN and TAKUMI_GUARD_TOKEN
       # secrets themselves are provided step-scoped only to the steps whose package-manager
-      # invocations expand them from the generated .npmrc.
+      # invocations expand them from the generated registry configs.
       HAS_VERDACCIO_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN }}
       # Defined-but-empty defaults: yarn1 crashes with "Failed to replace env in config" when a
       # .npmrc references an UNDEFINED env var (an empty one is fine), so steps that are not
@@ -247,13 +254,11 @@ jobs:
               ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*bun[[:space:]]*=' mise.toml)); then
             echo "bun: $(bun -v)"
             echo "runner=bun" >> $GITHUB_OUTPUT
-            NPMRC_AWARE=1
           else
             YARN=$(yarn -v); echo "yarn: $YARN"
             if [[ "$YARN" == "1."* ]]; then
               echo "yarn-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
               echo "skip-scripts-option=--ignore-scripts" >> $GITHUB_OUTPUT
-              NPMRC_AWARE=1
             elif [[ "$YARN" == "2."* ]]; then
               : # Yarn 3 renamed Yarn 2's --skip-builds to --mode=skip-build.
               echo "skip-scripts-option=--skip-builds" >> $GITHUB_OUTPUT
@@ -262,14 +267,6 @@ jobs:
             fi
             echo "runner=yarn" >> $GITHUB_OUTPUT
           fi
-          : # Verdaccio credentials matter to every package manager, but the Guard token only
-          : # functions where .npmrc is read (bun/yarn1): a Guard-only Yarn Berry run keeps the
-          : # ordinary install path — there is no credential to protect, and the hardened
-          : # path's plugin stripping would break plugin-provided resolvers during its first,
-          : # replay-less install.
-          if [[ "$HAS_VERDACCIO_TOKEN" == "true" || ("$HAS_TAKUMI_GUARD_TOKEN" == "true" && -n "${NPMRC_AWARE:-}") ]]; then
-            echo "hardened-install=true" >> $GITHUB_OUTPUT
-          fi
 
           if PYTHON=$(python --version 2> /dev/null); then echo "python: $PYTHON"; fi
           if POETRY=$(poetry --version 2> /dev/null); then
@@ -277,6 +274,14 @@ jobs:
             poetry config virtualenvs.in-project true
           fi
 
+      # Before every install: on ephemeral GitHub-hosted runners this writes the global release-age
+      # gate (self-hosted runners get it from self-host-utils via wbfy), and in both environments
+      # it fails the job when the selected package manager is too old to enforce the gate.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
+        name: Apply the minimum-release-age policy to global package-manager configs
+        uses: WillBooster/reusable-workflows/.github/actions/apply-release-age-gate@main
+        with:
+          runner: ${{ steps.env-info.outputs.runner }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v6.1.0
         with:
@@ -305,98 +310,17 @@ jobs:
           WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           WORKFLOW_SHA: ${{ job.workflow_sha }}
 
-      # ${VERDACCIO_TOKEN} / ${TAKUMI_GUARD_TOKEN} are written literally; npm/bun/yarn1 expand
-      # them from the environment at install time, so no plaintext token lands on disk. The file
-      # goes into the workspace, NOT ~/.npmrc: a persistent ~/.npmrc would crash npm/yarn1 in any
-      # other job on the same self-hosted runner that leaves the variables undefined. The managed
-      # lines are rewritten authoritatively so stale entries never win over the current tokens,
-      # and the file is hidden from git (a root-scoped exclude entry, or skip-worktree when the
-      # consumer tracks .npmrc) so commit-and-push workflows cannot commit it. Yarn Berry ignores
-      # .npmrc; Berry consumers must reference ${VERDACCIO_TOKEN} from their committed
-      # .yarnrc.yml instead (and Takumi Guard does not apply to Berry installs). Guard covers
-      # newly RESOLVED public packages: package managers may download already-locked packages
-      # from the resolved URL recorded in the lockfile (Yarn 1 always does), bypassing the proxy.
+      # Route every package manager's installs through Takumi Guard and the private Verdaccio
+      # registry via generated workspace configs (.npmrc for npm/bun/yarn1, .yarnrc.yml for Yarn
+      # Berry; see the generate-registry-configs action for details). Guard covers newly RESOLVED
+      # public packages: package managers may download already-locked packages from the resolved
+      # URL recorded in the lockfile (Yarn 1 always does), bypassing the proxy.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_REGISTRY_TOKEN == 'true' }}
-        name: Generate .npmrc for the private Verdaccio registry and Takumi Guard
-        run: |
-          : # Recover state a crashed previous run may have left behind (the always() cleanup
-          : # cannot run when the runner dies): clear a stale skip-worktree bit and restore the
-          : # committed content before regenerating.
-          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
-            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
-            git checkout -- .npmrc 2> /dev/null || true
-          fi
-          NPMRC_TMP=$(mktemp "$RUNNER_TEMP/npmrc.XXXXXX")
-          if [[ -e .npmrc ]]; then
-            : # Strip only the lines this run rewrites below (keyed on the present tokens), so a
-            : # committed custom registry= line or Verdaccio config survives runs without the
-            : # corresponding token ('$^' never matches, keeping every other line).
-            FILTER='$^'
-            if [[ "$HAS_TAKUMI_GUARD_TOKEN" == "true" ]]; then
-              FILTER="$FILTER|^registry=|^//npm\.flatt\.tech/:_authToken"
-            fi
-            if [[ "$HAS_VERDACCIO_TOKEN" == "true" ]]; then
-              FILTER="$FILTER|^@willbooster-private:registry|^//verdaccio-production-e389\.up\.railway\.app/:_authToken"
-            fi
-            grep -vE "$FILTER" .npmrc > "$NPMRC_TMP" || true
-            : # Some grep implementations do not add the final newline missing from the last line.
-            if [[ -s "$NPMRC_TMP" && -n "$(tail -c1 "$NPMRC_TMP")" ]]; then echo >> "$NPMRC_TMP"; fi
-          fi
-          if [[ "$HAS_TAKUMI_GUARD_TOKEN" == "true" ]]; then
-            : # Route default-registry installs through the Takumi Guard proxy, which blocks
-            : # known-malicious packages (https://flatt.tech/takumi/features/guard). Scoped
-            : # registries (e.g. @willbooster-private) deliberately keep their own registry.
-            echo 'registry=https://npm.flatt.tech/' >> "$NPMRC_TMP"
-            echo '//npm.flatt.tech/:_authToken=${TAKUMI_GUARD_TOKEN}' >> "$NPMRC_TMP"
-          fi
-          if [[ "$HAS_VERDACCIO_TOKEN" == "true" ]]; then
-            echo '@willbooster-private:registry=https://verdaccio-production-e389.up.railway.app/' >> "$NPMRC_TMP"
-            echo '//verdaccio-production-e389.up.railway.app/:_authToken=${VERDACCIO_TOKEN}' >> "$NPMRC_TMP"
-          fi
-          : # Replace .npmrc with mv instead of writing into it, so a consumer-committed symlink
-          : # cannot redirect the managed lines into its target (e.g. a persistent home npmrc).
-          rm -f .npmrc
-          mv "$NPMRC_TMP" .npmrc
-          : # Ignore rules never hide tracked files, so hide a committed .npmrc from the
-          : # commit-and-push workflows with skip-worktree (the dotenv-hide pattern shared by these workflows).
-          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
-            git update-index --skip-worktree -- .npmrc
-          else
-            if ! grep -qxF '/.npmrc' .git/info/exclude 2>/dev/null; then
-              : # A persistent exclude file may end without a newline; a direct append would
-              : # merge into its last rule and leave the generated file unhidden.
-              if [[ -s .git/info/exclude && -n "$(tail -c1 .git/info/exclude)" ]]; then echo >> .git/info/exclude; fi
-              echo '/.npmrc' >> .git/info/exclude
-            fi
-          fi
-      # Yarn Berry loads `.yarnrc.yml` plugins during every yarn command, including the
-      # credentialed install below, so a repository-committed plugin is config-driven code
-      # execution that can read the step-scoped registry tokens (#453). Strip the top-level
-      # `plugins:` block for the credentialed install only and restore the original file
-      # right after it, so plugins still apply to the tokenless lifecycle replay. Residual
-      # risk (out of scope here): the committed yarnPath release in .yarn/releases/ also
-      # executes during the credentialed install.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.hardened-install == 'true' && steps.env-info.outputs.runner != 'bun' && steps.env-info.outputs.skip-scripts-option != '--ignore-scripts' }}
-        name: Remove plugins from .yarnrc.yml for the credentialed install
-        run: |
-          if [[ ! -f .yarnrc.yml ]]; then exit 0; fi
-          : # Recover the committed content a crashed previous run may have left sanitized
-          : # (the always() restore cannot run when the runner dies, and persistent
-          : # self-hosted workspaces keep the worktree between runs).
-          if git ls-files --error-unmatch -- .yarnrc.yml > /dev/null 2>&1; then
-            git checkout -- .yarnrc.yml 2> /dev/null || true
-          fi
-          YARNRC_BACKUP=$(mktemp "$RUNNER_TEMP/yarnrc.XXXXXX")
-          cp .yarnrc.yml "$YARNRC_BACKUP"
-          echo "YARNRC_BACKUP=$YARNRC_BACKUP" >> "$GITHUB_ENV"
-          : # Drop the top-level `plugins:` block (from `plugins:` up to the next top-level
-          : # key; column-0 comments do not end the block); keep every other line untouched.
-          YARNRC_TMP=$(mktemp "$RUNNER_TEMP/yarnrc-sanitized.XXXXXX")
-          awk '/^plugins:/ { skip = 1; next } skip && /^[^[:space:]#]/ { skip = 0 } !skip' "$YARNRC_BACKUP" > "$YARNRC_TMP"
-          : # Replace with mv instead of writing into the file, so a committed symlink cannot
-          : # redirect the write (the .npmrc generation pattern).
-          rm -f .yarnrc.yml
-          mv "$YARNRC_TMP" .yarnrc.yml
+        name: Generate registry configs for the private Verdaccio registry and Takumi Guard
+        uses: WillBooster/reusable-workflows/.github/actions/generate-registry-configs@main
+        with:
+          has-takumi-guard-token: ${{ env.HAS_TAKUMI_GUARD_TOKEN }}
+          has-verdaccio-token: ${{ env.HAS_VERDACCIO_TOKEN }}
       # With a registry token (Verdaccio and/or Takumi Guard), resolve and download with
       # lifecycle scripts disabled so repository- or dependency-defined preinstall/postinstall
       # can never read the step-scoped tokens (#449); the tokenless step below replays the
@@ -405,12 +329,12 @@ jobs:
         name: Install dependencies
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
-            if [[ "${{ steps.env-info.outputs.hardened-install }}" == "true" ]]; then
+            if [[ "$HAS_REGISTRY_TOKEN" == "true" ]]; then
               bun install --ignore-scripts
             else
               bun install
             fi
-          elif [[ "${{ steps.env-info.outputs.hardened-install }}" == "true" ]]; then
+          elif [[ "$HAS_REGISTRY_TOKEN" == "true" ]]; then
             : # No lifecycle scripts run here, so a single retry only covers transient network
             : # failures; a reproducible failure is a resolution, auth or lockfile error.
             ${{ steps.env-info.outputs.runner }} install --no-immutable ${{ steps.env-info.outputs.skip-scripts-option }} || \
@@ -426,33 +350,22 @@ jobs:
             }
           fi
         env:
-          # Only bun/yarn1 read the Guard lines from .npmrc; Yarn Berry ignores .npmrc, so the
-          # token would give its repo-controlled yarnPath executable a secret with zero
-          # installation function — Berry installs get the defined-but-empty job-level value.
-          TAKUMI_GUARD_TOKEN: ${{ (steps.env-info.outputs.runner == 'bun' || steps.env-info.outputs.skip-scripts-option == '--ignore-scripts') && secrets.TAKUMI_GUARD_TOKEN || '' }}
+          # bun/yarn1 expand the token from the generated .npmrc; Yarn Berry expands it from
+          # the generated .yarnrc.yml.
+          TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
           # Yarn 1 delegates execution to a repository-controlled `yarn-path` binary BEFORE
           # --ignore-scripts applies, so bypass it exactly when this install is credentialed
           # (hardened) — a tokenless install has no secret to protect and keeps its pinned
           # wrapper. Empty means "honor yarn-path" (yarn1's boolifyWithDefault treats '' as
-          # unset); Berry repos always keep their committed yarnPath — it IS the Berry binary —
-          # and are tokenless here anyway.
-          YARN_IGNORE_PATH: ${{ (steps.env-info.outputs.hardened-install == 'true' && steps.env-info.outputs.skip-scripts-option == '--ignore-scripts') && '1' || '' }}
-      # always(): the original .yarnrc.yml must come back even when the credentialed
-      # install fails, both for the tokenless lifecycle replay below and so the sanitized
-      # file can never be committed by later steps or outlive the job on persistent
-      # self-hosted workspaces (YARNRC_BACKUP is only set when the step above sanitized).
-      - if: ${{ always() && env.YARNRC_BACKUP }}
-        name: Restore the original .yarnrc.yml
-        run: |
-          rm -f .yarnrc.yml
-          mv "$YARNRC_BACKUP" .yarnrc.yml
+          # unset); Berry repos always keep their committed yarnPath — it IS the Berry binary.
+          YARN_IGNORE_PATH: ${{ (env.HAS_REGISTRY_TOKEN == 'true' && steps.env-info.outputs.skip-scripts-option == '--ignore-scripts') && '1' || '' }}
       # Replay the lifecycle scripts the credentialed install skipped, in an environment without
       # the registry tokens (the job-level empty values keep ${VERDACCIO_TOKEN} and
       # ${TAKUMI_GUARD_TOKEN} references in .npmrc/.yarnrc.yml expanding to '' instead of
       # erroring). Every package is already in the package manager's cache from the step above,
       # so the private registry is not contacted (and Takumi Guard serves anonymously anyway).
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.hardened-install == 'true' }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_REGISTRY_TOKEN == 'true' }}
         name: Run dependency lifecycle scripts without registry credentials
         run: |
           if [[ "${{ steps.env-info.outputs.runner }}" == "bun" ]]; then
@@ -497,8 +410,11 @@ jobs:
         env:
           # Consumer scripts load env vars through wb/fnox (step-scoped; see the fnox check step above).
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
-      # When an install has to UPDATE bun.lock while the generated .npmrc points the default
-      # registry at Takumi Guard, bun rewrites the `resolved` URL of every ALREADY-LOCKED package
+      # When an install has to UPDATE bun.lock while an .npmrc points the default registry at
+      # Takumi Guard (the generated workspace .npmrc with a caller token, or the persistent
+      # anonymous ~/.npmrc that WillBooster/self-host-utils provisions on self-hosted runner
+      # machines — hence no token gate on this step), bun rewrites the
+      # `resolved` URL of every ALREADY-LOCKED package
       # to https://npm.flatt.tech/… (newly added packages correctly keep ""). The fixer steps
       # below would then report those URLs as a fix to apply, pinning a shared lockfile to one environment's mirror:
       # a cold-cache `bun install` afterwards downloads from the proxy on every machine, and fails
@@ -512,7 +428,7 @@ jobs:
       # DIRECT tarball dependency carries the same host in two other places that must survive: the
       # workspace descriptor (`"pkg": "https://…"`, preceded by `": `) and its package tuple's
       # first element (`"pkg@https://…"`), whose entry has no `resolved` slot at all.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_TAKUMI_GUARD_TOKEN == 'true' }}
+      - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Keep the Takumi Guard proxy out of the committed lockfile
         run: |
           if [[ ! -f bun.lock ]]; then exit 0; fi
@@ -649,23 +565,9 @@ jobs:
         run: rm -f -- "$DOT_ENV_PATH"
         env:
           DOT_ENV_PATH: ${{ inputs.dot_env_path }}
-      # Revert the generate step: remove the file when this run created it, or restore the
-      # committed content and clear the skip-worktree bit when the consumer tracks .npmrc; the
-      # `.git` mutations otherwise outlive the job on persistent self-hosted workspaces.
       - if: ${{ always() && needs.pre.outputs.should_skip != 'true' && env.HAS_REGISTRY_TOKEN == 'true' }}
-        name: Clean up the generated .npmrc
-        run: |
-          if git ls-files --error-unmatch -- .npmrc > /dev/null 2>&1; then
-            git update-index --no-skip-worktree -- .npmrc 2> /dev/null || true
-            git checkout -- .npmrc 2> /dev/null || true
-          else
-            rm -f .npmrc
-            if [[ -f .git/info/exclude ]]; then
-              : # `grep -vx` exits 1 when every line matches, so tolerate it to keep `bash -e` green.
-              grep -vxF -- '/.npmrc' .git/info/exclude > .git/info/exclude.tmp || true
-              mv .git/info/exclude.tmp .git/info/exclude
-            fi
-          fi
+        name: Clean up the generated registry configs
+        uses: WillBooster/reusable-workflows/.github/actions/cleanup-registry-configs@main
       - if: ${{ always() }}
         name: Clean up pyc files, docker and ports
         run: |
@@ -677,5 +579,9 @@ jobs:
           if [[ ! $(docker ps) ]]; then
             (which docker && sleep 5 && sudo reboot) &
           fi
-          : # port
-          npx --yes kill-port@latest 3000 > /dev/null &
+          : # port — lsof instead of `npx kill-port`: this always() step must not resolve a fresh
+          : # package from the registry (it can run before/without the release-age gate, and the
+          : # legacy-Node matrix legs have npm versions that ignore min-release-age anyway).
+          : # LISTEN only: a bare `-i :3000` also matches processes merely CONNECTED to port 3000
+          : # (e.g. another job's test client on this shared runner), which must not be killed.
+          (lsof -t -i TCP:3000 -sTCP:LISTEN | xargs -r kill -9) 2> /dev/null &

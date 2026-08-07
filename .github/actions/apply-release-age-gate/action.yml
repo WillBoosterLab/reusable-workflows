@@ -1,0 +1,106 @@
+name: Apply release-age gate
+description: >-
+  Write the organization's 7-day minimum-release-age policy into the GitHub-hosted runner's GLOBAL
+  package-manager configs (~/.bunfig.toml, ~/.yarnrc.yml, ~/.npmrc) before any install, and fail
+  the job when the selected package manager is too old to enforce the gate. Self-hosted runners
+  are provisioned by self-host-utils, whose scheduled wbfy runs write the same gate to their home
+  directories (ensureGlobalReleaseAgeGates in WillBooster/shared), so the config write is skipped
+  there; GitHub-hosted runners are ephemeral and can only be covered here. Project-level
+  configuration takes precedence in all three managers, so wbfied repositories keep their own
+  (identical) gate and exclusion list.
+inputs:
+  runner:
+    description: >-
+      The package manager that resolves packages in this job ('bun' or 'yarn'; usually the calling
+      workflow's env-info runner output). Versions too old to enforce the gate silently ignore its
+      settings (Yarn loads the home rc in loose mode per yarnpkg/berry#2638, and Bun treats
+      minimumReleaseAge as an unknown bunfig key before 1.3.0) and would install ungated — which
+      is not acceptable, so the action DELIBERATELY fails the job for Yarn Berry < 4.10 and for
+      Bun < 1.3.0 to force an upgrade. Leave empty only in jobs that never install or resolve
+      packages with Yarn or Bun.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Apply the minimum-release-age policy to global package-manager configs
+      shell: bash
+      env:
+        RUNNER: ${{ inputs.runner }}
+      run: |
+        # Only the organization's own packages are exempt: we control who publishes them. Keep in
+        # sync with bunMinimumReleaseAgeExcludes in WillBooster/shared
+        # (packages/wbfy/src/generators/bunfig.ts) — that constant is the canonical vetted list.
+        EXCLUDES=(
+          '@exercode/problem-utils'
+          '@willbooster-private/agentic-workflows'
+          '@willbooster-private/ai-ocr'
+          '@willbooster-private/llm-proxy'
+          '@willbooster/agent-skills'
+          '@willbooster/babel-configs'
+          '@willbooster/monaco-loader'
+          '@willbooster/monaco-react'
+          '@willbooster/oxfmt-config'
+          '@willbooster/oxlint-config'
+          '@willbooster/prettier-config'
+          '@willbooster/react-frame-component'
+          '@willbooster/shared-lib'
+          '@willbooster/shared-lib-blitz-next'
+          '@willbooster/shared-lib-next'
+          '@willbooster/shared-lib-node'
+          '@willbooster/shared-lib-react'
+          '@willbooster/wb'
+          'agent-runtime-kit'
+          'at-decorators'
+          'build-ts'
+          'gen-i18n-ts'
+          'one-way-git-sync'
+          'vinext-progress'
+        )
+
+        # Ephemeral GitHub-hosted runners start from a fresh $HOME with none of these files and do
+        # not set XDG_CONFIG_HOME, so plain overwrites of the $HOME paths suffice. The 7-day gate
+        # is expressed in each manager's unit: seconds (Bun), minutes (Yarn), days (npm).
+        if [[ "${RUNNER_ENVIRONMENT:-}" == 'github-hosted' ]]; then
+          # Bun ignores unknown bunfig keys, so versions predating minimumReleaseAge (< 1.3.0)
+          # are unaffected by this file; the version check below is what breaks them.
+          {
+            printf '[install]\nminimumReleaseAge = 604800 # 7 days\nminimumReleaseAgeExcludes = [\n'
+            printf '    "%s",\n' "${EXCLUDES[@]}"
+            printf ']\n'
+          } > "$HOME/.bunfig.toml"
+          # min-release-age needs npm >= 11.10 and min-release-age-exclude needs npm >= 11.17;
+          # older npm only warns about the unknown keys, and yarn1 ignores them.
+          {
+            printf 'min-release-age=7\n'
+            printf 'min-release-age-exclude[]=%s\n' "${EXCLUDES[@]}"
+          } > "$HOME/.npmrc"
+          # Minutes as a plain number: Yarn's duration parser silently ignores day suffixes
+          # (yarnpkg/berry#6991), which would disable the gate entirely.
+          {
+            printf 'npmMinimalAgeGate: 10080 # 7 days\nnpmPreapprovedPackages:\n'
+            printf "  - '%s'\n" "${EXCLUDES[@]}"
+          } > "$HOME/.yarnrc.yml"
+          echo 'Applied the minimum-release-age policy to ~/.bunfig.toml, ~/.npmrc, and ~/.yarnrc.yml'
+        fi
+
+        # Yarn 1 is exempt: the calling workflows still support Yarn 1 repositories even though it
+        # cannot enforce any age gate (it ignores .yarnrc.yml, and npm's min-release-age does not
+        # apply to its resolution) — a known policy gap, not an oversight.
+        # No fallback in the probes below: when the workflow installs with the checked manager, a
+        # failed version probe must fail the job rather than silently skip the enforcement.
+        if [[ "$RUNNER" == 'yarn' ]]; then
+          YARN_VERSION="$(yarn --version)"
+          if [[ "$YARN_VERSION" != 1.* ]] && \
+             [[ "$(printf '%s\n' 4.10.0 "$YARN_VERSION" | sort -V | head -n 1)" != '4.10.0' ]]; then
+            echo "::error::Yarn $YARN_VERSION cannot enforce npmMinimalAgeGate (requires Yarn >= 4.10), so installs would run without the organization's release-age gate; upgrade Yarn to >= 4.10."
+            exit 1
+          fi
+        elif [[ "$RUNNER" == 'bun' ]]; then
+          # Symmetric to the Yarn case: Bun < 1.3.0 (oven-sh/bun#22801) silently ignores
+          # minimumReleaseAge as an unknown bunfig key and would install ungated.
+          BUN_VERSION="$(bun --version)"
+          if [[ "$(printf '%s\n' 1.3.0 "$BUN_VERSION" | sort -V | head -n 1)" != '1.3.0' ]]; then
+            echo "::error::Bun $BUN_VERSION cannot enforce minimumReleaseAge (requires Bun >= 1.3.0), so installs would run without the organization's release-age gate; upgrade Bun to >= 1.3.0."
+            exit 1
+          fi
+        fi
