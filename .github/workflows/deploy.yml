@@ -271,12 +271,10 @@ jobs:
           if gcloud -v &> /dev/null; then echo "gcloud: $(gcloud -v 2>&1 | head -n 1)"; fi
 
       # Before every install: on ephemeral GitHub-hosted runners this writes the global release-age
-      # gate (self-hosted runners get it from self-host-utils via wbfy), and in both environments
-      # it fails the job when the selected package manager is too old to enforce the gate.
+      # gate (self-hosted runners get the same content from self-host-utils instead), and in both
+      # environments it fails the job when the Yarn or Bun on PATH is too old to enforce it.
       - name: Apply the minimum-release-age policy to global package-manager configs
         uses: WillBooster/reusable-workflows/.github/actions/apply-release-age-gate@main
-        with:
-          runner: ${{ steps.env-info.outputs.runner }}
       - name: Set environment variables
         run: |
           echo "PATH=$HOME/.fly/bin:$PATH" >> $GITHUB_ENV

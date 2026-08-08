@@ -103,6 +103,7 @@ jobs:
           node-version: lts/*
       # The npx call below is pinned (see its comment), so the gate protects only any other or
       # future registry resolution in this job, on runners whose npm honours min-release-age.
+      # It also fails the job when the Yarn or Bun on PATH is too old to enforce the gate.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Apply the minimum-release-age policy to global package-manager configs
         uses: WillBooster/reusable-workflows/.github/actions/apply-release-age-gate@main
@@ -115,9 +116,9 @@ jobs:
              ! ([[ -f .tool-versions ]] && grep -qE '^(node|nodejs)[[:space:]]' .tool-versions) && \
              ! ([[ -f mise.toml ]] && grep -qE '^[[:space:]]*(node|nodejs)[[:space:]]*=' mise.toml); then
             CONSTRAINT=$(node -e "console.log(((require('./package.json') || {}).engines || {}).node)")
-            : # Pinned: this job may run with a preinstalled npm < 11.10 that ignores the
-            : # min-release-age gate, and published npm versions are immutable, so a pin removes
-            : # the freshly-resolved-latest exposure the gate cannot cover here.
+            : # Pinned: this job may run with a preinstalled npm < 11.10 that ignores the gate, and
+            : # published npm versions are immutable, so a pin removes the freshly-resolved-latest
+            : # exposure the gate cannot cover here.
             NODE_VERSIONS=$(npx -y semver@7.8.5 -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
@@ -275,13 +276,11 @@ jobs:
           fi
 
       # Before every install: on ephemeral GitHub-hosted runners this writes the global release-age
-      # gate (self-hosted runners get it from self-host-utils via wbfy), and in both environments
-      # it fails the job when the selected package manager is too old to enforce the gate.
+      # gate (self-hosted runners get the same content from self-host-utils instead), and in both
+      # environments it fails the job when the Yarn or Bun on PATH is too old to enforce it.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Apply the minimum-release-age policy to global package-manager configs
         uses: WillBooster/reusable-workflows/.github/actions/apply-release-age-gate@main
-        with:
-          runner: ${{ steps.env-info.outputs.runner }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.yarn-dir }}
         uses: actions/cache@v6.1.0
         with:
