@@ -9,7 +9,6 @@ pre-commit:
     - name: cleanup
       glob: '**/*.{java}'
       run: |-
-        # Lefthook expands {staged_files} as shell-escaped args, so paths with spaces stay intact.
 
 
 
@@ -28,7 +27,6 @@ pre-commit:
       glob: '**/migration.sql'
       run: |-
         failed=0
-        # Lefthook expands {staged_files} as shell-escaped args, so paths with spaces stay intact.
         for file in {staged_files}; do
           if grep -q 'Warnings:' "$file"; then
             echo "Migration SQL file ($file) contains warnings! Please solve the warnings and commit again."

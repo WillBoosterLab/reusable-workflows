@@ -41,6 +41,9 @@ on:
         required: false
       GH_TOKEN:
         required: true
+      NPM_TOKEN:
+        description: 'auth token for registry.npmjs.org, for packages that token-publish (e.g. first publishes of platform packages, which npm trusted publishing cannot create). Use a granular, package-scoped, short-lived publish token and revoke it once trusted publishing takes over. It reaches only the Release step env: semantic-release''s npm plugin reads it, and a consumer release script publishing directly must write its own npm auth config from the env var (the generated workspace .npmrc carries no registry.npmjs.org line).'
+        required: false
       TAKUMI_GUARD_TOKEN:
         description: auth token for the Takumi Guard malicious-package-blocking registry proxy (used to generate registry configs)
         required: false
@@ -353,13 +356,18 @@ jobs:
           fi
         env:
           # The consumer release script loads env vars through wb/fnox (step-scoped; see the
-          # fnox check step above). Known residual risk, same as VERDACCIO_TOKEN here:
-          # `wb release` clean-reinstalls with lifecycle scripts enabled while this step's
-          # credentials are in the environment (shared#1003).
+          # fnox check step above). Known residual risk, same as VERDACCIO_TOKEN and NPM_TOKEN
+          # here: `wb release` clean-reinstalls with lifecycle scripts enabled while this step's
+          # credentials are in the environment (shared#1003) — with NPM_TOKEN present that is a
+          # public-registry publish credential, hence the granular short-lived token guidance in
+          # its declaration.
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write
           # semantic-release's npm plugin reads the NPM_TOKEN env var for registry auth.
-          NPM_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+          # The dedicated npmjs publish token wins; VERDACCIO_TOKEN doubles as the publish
+          # auth only for repositories that publish to the private registry (a repository
+          # may hold both secrets — VERDACCIO_TOKEN is primarily the install token).
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN || secrets.VERDACCIO_TOKEN }}
           # The release script's npm invocations expand these tokens from the generated .npmrc.
           TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
