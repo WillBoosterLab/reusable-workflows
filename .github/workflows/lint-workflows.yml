@@ -1,0 +1,98 @@
+name: Lint workflows
+
+# This repository hosts the organization's reusable workflow definitions but had no CI validating
+# them, so a syntax error or invalid expression only surfaced when a caller repository's run
+# failed. actionlint catches those before merge. Note actionlint 1.7.12 cannot lint the composite
+# actions under .github/actions (it parses action.yml as a workflow), so they stay unvalidated.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      # From the release's actionlint_<version>_checksums.txt; the tag is mutable, so the
+      # committed checksum is what pins the binary actually executed here.
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@v7.0.0
+      # Download to a file (a piped `bash <(curl …)` would swallow curl failures) and verify the
+      # tarball against the committed checksum before extracting the binary.
+      - name: Download actionlint
+        run: |
+          curl --proto '=https' --tlsv1.2 --fail --show-error --silent --location --retry 3 \
+            -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+      # shellcheck/pyflakes are disabled for now: enabling shellcheck on the current scripts
+      # reports 61 pre-existing findings — 48 SC2086 and 2 SC2035 at info level, 6 SC2046
+      # warnings, and 5 error-level ones (4 SC1105 false positives on `(([[ … ]] && …) || …)`
+      # subshell constructs plus 1 SC2045) — so enabling it here would force a risky mass
+      # rewrite of long-verified scripts; enable it after a dedicated cleanup. The -ignore
+      # patterns are false positives from actionlint lagging behind GitHub's newer features:
+      # concurrency queues, and the job context's workflow_repository/workflow_sha properties
+      # (the pattern is anchored to the job context's object type — check_run_id — so the same
+      # property names stay checked on needs/steps and other contexts).
+      - name: Run actionlint
+        run: |
+          ./actionlint -no-color \
+            -shellcheck= -pyflakes= \
+            -ignore 'unexpected key "queue" for "concurrency" section' \
+            -ignore 'property "workflow_(repository|sha)" is not defined in object type \{check_run_id:'
+      # actionlint 1.7.12 does not know concurrency.queue (its diagnostic is ignored above), so
+      # validate the property separately: GitHub accepts only `single` and `max`, and forbids
+      # `queue: max` combined with `cancel-in-progress: true`. Ruby is used because its YAML
+      # support needs no extra install on the runner; it runs AFTER actionlint so an unparsable
+      # file gets actionlint's file:line diagnostic (rescued here) instead of a Psych backtrace.
+      - name: Check concurrency.queue values
+        run: |
+          ruby - << 'EOF'
+          require 'date'
+          require 'yaml'
+          problems = []
+          walk = lambda do |node, path|
+            case node
+            when Hash
+              conc = node['concurrency']
+              if conc.is_a?(Hash) && conc.key?('queue')
+                unless %w[single max].include?(conc['queue'])
+                  problems << "#{path}: concurrency.queue must be 'single' or 'max', got #{conc['queue'].inspect}"
+                end
+                cancel = conc['cancel-in-progress']
+                # Anything but an absent key or a literal false can evaluate true at run time
+                # (a quoted true or a dollar-braces expression), which GitHub rejects with queue: max.
+                if conc['queue'] == 'max' && !(cancel.nil? || cancel == false)
+                  problems << "#{path}: GitHub rejects `queue: max` unless cancel-in-progress is absent or false, got #{cancel.inspect}"
+                end
+              end
+              node.each_value { |value| walk.call(value, path) }
+            when Array
+              node.each { |value| walk.call(value, path) }
+            end
+          end
+          Dir.glob('.github/workflows/*.{yml,yaml}').sort.each do |file|
+            begin
+              # Date/Time cover unquoted date-like scalars, which are valid workflow YAML.
+              walk.call(YAML.safe_load(File.read(file), permitted_classes: [Date, Time], aliases: true), file)
+            rescue Psych::SyntaxError
+              next # actionlint already reported the unparsable file with file:line context
+            rescue Psych::Exception => error
+              problems << "#{file}: could not validate concurrency.queue: #{error.message}"
+            end
+          end
+          problems.each { |problem| puts "::error::#{problem}" }
+          exit(problems.empty? ? 0 : 1)
+          EOF
