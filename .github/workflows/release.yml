@@ -12,13 +12,19 @@ on:
         default: production
         required: false
         type: string
+      file_path_1:
+        description: Path to a credential file written immediately before the release command
+        required: false
+        type: string
       github_hosted_runner:
+        description: Cannot override repository visibility; private repositories always use self-hosted runners.
         required: false
         type: boolean
       ignore_renovate:
         required: false
         type: boolean
       runs_on:
+        description: JSON runner labels. Private overrides must be arrays containing self-hosted; other overrides use the default self-hosted pool.
         required: false
         type: string
       skip_build:
@@ -35,6 +41,8 @@ on:
       DISCORD_WEBHOOK_URL:
         required: false
       DOT_ENV:
+        required: false
+      FILE_CONTENT_1:
         required: false
       FNOX_AGE_KEY:
         description: age secret key to decrypt fnox.toml secrets
@@ -63,7 +71,7 @@ jobs:
       # The default queue (`single`) cancels an already-pending run when another one queues,
       # silently dropping a release; keep every queued release.
       queue: max
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
       NODE_OPTIONS: --max-old-space-size=4096
@@ -74,6 +82,7 @@ jobs:
       # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
       HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
+      HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
       # Either registry token triggers the registry-config generation/cleanup and the hardened
       # install path (scripts-disabled credentialed install + tokenless lifecycle replay).
       HAS_REGISTRY_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.TAKUMI_GUARD_TOKEN }}
@@ -94,7 +103,7 @@ jobs:
     steps:
       - name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       # The secret is passed via env and written with printf so that quotes or backslashes in
       # its value cannot break out of the shell command.
       - if: ${{ env.HAS_DOT_ENV == 'true' }}
@@ -116,7 +125,7 @@ jobs:
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
         uses: actions/setup-node@v7.0.0
         with:
-          node-version: '24.18.0'
+          node-version: '24.21.0'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
         name: Setup isolated GPG home
@@ -125,7 +134,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.2.1
+        uses: jdx/mise-action@v4.3.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Ensure fnox secrets are resolvable
@@ -345,6 +354,12 @@ jobs:
           }
           fetch_tags || { sleep 10; fetch_tags; }
           git tag --list | sort > "$RUNNER_TEMP/tags-before-release.txt"
+      - if: ${{ steps.stale-check.outputs.stale != 'true' && inputs.file_path_1 && env.HAS_FILE_CONTENT_1 == 'true' }}
+        name: Write release credential file
+        run: printf '%s\n' "$FILE_CONTENT_1" > "$FILE_PATH_1"
+        env:
+          FILE_CONTENT_1: ${{ secrets.FILE_CONTENT_1 }}
+          FILE_PATH_1: ${{ inputs.file_path_1 }}
       - if: ${{ steps.stale-check.outputs.stale != 'true' }}
         name: Release
         run: |
@@ -485,13 +500,25 @@ jobs:
           CONTENT_JSON: ${{ toJSON(format('[{0}]({1})の最新版 ([{2}]({1}/commit/{3})) をリリースしました。', github.event.repository.name, github.event.repository.html_url, steps.post-release-tag.outputs.tags, steps.post-release-tag.outputs.commit)) }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
-      # defaults to .env, which some private repos commit.
-      - if: ${{ always() && env.HAS_DOT_ENV == 'true' }}
+      - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && failure() }}
+        name: Notify release failure
+        run: |
+          printf '{"username":"WillBooster Bot","avatar_url":"https://avatars.githubusercontent.com/u/98675783","allowed_mentions":{"parse":[]},"content":%s}' "$CONTENT_JSON" > "$RUNNER_TEMP/discord-payload.json"
+          curl --retry 2 --fail-with-body -X POST -H "Content-Type: application/json" --data @"$RUNNER_TEMP/discord-payload.json" "$DISCORD_WEBHOOK_URL?wait=true"
+          rm -f "$RUNNER_TEMP/discord-payload.json"
+        env:
+          CONTENT_JSON: ${{ toJSON(format('[{0}]({1})のリリースに[失敗]({1}/actions/runs/{2})しました。', github.event.repository.name, github.event.repository.html_url, github.run_id)) }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      # Delete only files this run wrote: both input paths can name files a consumer commits.
+      - if: ${{ always() && (env.HAS_DOT_ENV == 'true' || env.HAS_FILE_CONTENT_1 == 'true') }}
         name: Delete credential files
-        run: rm -f -- "$DOT_ENV_PATH"
+        run: |
+          if [[ "$HAS_DOT_ENV" == "true" ]]; then rm -f -- "$DOT_ENV_PATH"; fi
+          if [[ "$HAS_FILE_CONTENT_1" == "true" && -n "$FILE_PATH_1" ]]; then rm -f -- "$FILE_PATH_1"; fi
         env:
           DOT_ENV_PATH: ${{ inputs.dot_env_path }}
+          FILE_PATH_1: ${{ inputs.file_path_1 }}
       - if: ${{ always() && env.HAS_REGISTRY_TOKEN == 'true' }}
         name: Clean up the generated registry configs
         uses: WillBooster/reusable-workflows/.github/actions/cleanup-registry-configs@main

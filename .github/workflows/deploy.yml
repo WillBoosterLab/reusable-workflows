@@ -30,6 +30,7 @@ on:
         required: false
         type: string
       github_hosted_runner:
+        description: Cannot override repository visibility; private repositories always use self-hosted runners.
         required: false
         type: boolean
       health_check_path:
@@ -51,6 +52,7 @@ on:
         required: false
         type: string
       runs_on:
+        description: JSON runner labels. Private overrides must be arrays containing self-hosted; other overrides use the default self-hosted pool.
         required: false
         type: string
       server_url:
@@ -98,7 +100,7 @@ on:
 jobs:
   deploy:
     if: ${{ (!inputs.target_organization || github.repository_owner == inputs.target_organization) && (!inputs.ignore_renovate || (github.event.head_commit.author.username != 'renovate-bot' && github.event.head_commit.author.username != 'renovate[bot]')) }}
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || (inputs.cpu_arch && fromJSON(format('["self-hosted", "{0}", "{1}"]', inputs.ci_label, inputs.cpu_arch))) || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       FORCE_COLOR: 3
       # constants
@@ -144,8 +146,9 @@ jobs:
         run: if [[ ! $(docker ps) ]]; then sudo reboot; fi
       - name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.branch }}
           # WB_VERSION below comes from `git describe --always --tags`; without tags it silently
           # degrades to a bare commit sha, so a production deploy would no longer report its
@@ -205,7 +208,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: jdx/mise-action@v4.2.1
+        uses: jdx/mise-action@v4.3.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       # A mere FNOX_AGE_KEY presence check cannot catch a wrong key (fnox exits 0 and silently
@@ -464,7 +467,7 @@ jobs:
         uses: nick-fields/retry@dd56f1ca8ca991e2385c18ab6dd36ea7f9fdb55f
         with:
           timeout_minutes: 60
-          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 20 || 1 }}
+          max_attempts: ${{ (env.HAS_FLY_API_TOKEN == 'true' || env.HAS_RAILWAY_API_TOKEN == 'true' || env.HAS_GCP_SA_KEY_JSON == 'true') && 5 || 1 }}
           command: |
             : # The retry action runs this via `bash -c` without -e, so without this a failing
             : # deploy/ci-setup or cd would fall through and deploy anyway, reporting success.
@@ -519,11 +522,14 @@ jobs:
       # always has REPO_LINK/COMMIT_LINK/WORKFLOW_URL available.
       - if: ${{ env.HAS_DISCORD_WEBHOOK_URL == 'true' && always() }}
         run: |
-          echo "REPO_LINK=[${{ github.event.repository.name }}](${{ github.event.repository.html_url }})" >> $GITHUB_ENV
+          echo "REPO_LINK=[$REPOSITORY_NAME]($REPOSITORY_URL)" >> "$GITHUB_ENV"
           : # WB_VERSION is set by a later step; fall back so early failures still get a usable link.
           VERSION_FOR_LINK="${WB_VERSION:-$(git describe --always --tags 2> /dev/null || echo '${{ github.sha }}')}"
           echo "COMMIT_LINK=[$VERSION_FOR_LINK](https://github.com/${{ github.repository }}/commits/$VERSION_FOR_LINK)" >> $GITHUB_ENV
           echo "WORKFLOW_URL=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+        env:
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          REPOSITORY_URL: ${{ github.event.repository.html_url }}
       # Payload contents are JSON-escaped by GitHub's toJSON expression and inserted with
       # printf, so quotes/backslashes in inputs cannot break the JSON or the shell, and the
       # failure notifier needs no provisioned tools (an early failure may precede setup-node).

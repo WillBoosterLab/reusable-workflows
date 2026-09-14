@@ -3,6 +3,11 @@ name: Test
 on:
   workflow_call:
     inputs:
+      upload_test_log:
+        description: Upload raw test output (not secret-masked). Enable only when test output contains no secrets.
+        default: false
+        required: false
+        type: boolean
       artifact_path:
         required: false
         type: string
@@ -21,6 +26,7 @@ on:
         required: false
         type: string
       github_hosted_runner:
+        description: Cannot override repository visibility; private repositories always use self-hosted runners.
         required: false
         type: boolean
       paths_ignore:
@@ -28,6 +34,7 @@ on:
         required: false
         type: string
       runs_on:
+        description: JSON runner labels. Private overrides must be arrays containing self-hosted; other overrides use the default self-hosted pool.
         required: false
         type: string
       target_organization:
@@ -54,7 +61,7 @@ jobs:
   pre:
     # To avoid testing on synced (mirrored) repos.
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -68,7 +75,7 @@ jobs:
           paths_ignore: ${{ inputs.paths_ignore }}
   detect-node-version-matrix:
     needs: pre
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     outputs:
       json: ${{ steps.detect-node-version-matrix.outputs.json }}
     steps:
@@ -85,7 +92,9 @@ jobs:
         name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       # We need Node.js only if no version is declared in mise-managed files and no .node-version exists.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         id: check-node
@@ -124,7 +133,7 @@ jobs:
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
     needs: [pre, detect-node-version-matrix]
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       FORCE_COLOR: 3
       NODE_OPTIONS: --max-old-space-size=4096
@@ -172,7 +181,7 @@ jobs:
       # lifecycle scripts and tests would run attacker-controlled code with a persistent
       # workspace. The historical branch checkout failed for forks as a side effect; keep that
       # refusal, but explicit. Route fork PRs onto ephemeral runners via
-      # github_hosted_runner/runs_on instead.
+      # runs_on in a public repository instead; private fork PRs are unsupported.
       - if: ${{ runner.environment == 'self-hosted' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         name: Reject fork pull requests on self-hosted runners
         run: |
@@ -192,7 +201,8 @@ jobs:
       # corresponds to the commit it will be applied onto; fork PRs never reach this on
       # self-hosted (see the rejection above), and hosted runs keep the default (an empty ref).
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
+        id: checkout
         with:
           persist-credentials: false
           ref: ${{ (runner.environment == 'self-hosted' && (github.head_ref || github.ref_name)) || '' }}
@@ -228,7 +238,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.2.1
+        uses: jdx/mise-action@v4.3.0
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       # Unlike deploy's fail-fast check, this only warns: fork pull requests legitimately run
@@ -507,18 +517,48 @@ jobs:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Test
+        id: test
         run: |
-          if [[ "${{ env.HAS_TEST_COMMAND }}" == "true" ]]; then
-            ${{ steps.env-info.outputs.runner }} run ${{ inputs.custom_test_command }}
+          if [[ "$HAS_TEST_COMMAND" == "true" ]]; then
+            if [[ "$CUSTOM_TEST_COMMAND" == *$'\n'* ]]; then
+              echo '::error::custom_test_command must be a single line'
+              exit 1
+            fi
+            read -r -a custom_test_command <<< "$CUSTOM_TEST_COMMAND"
+            test_command=("$RUNNER" run "${custom_test_command[@]}")
           elif grep -q '"test/ci":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run test/ci
+            test_command=("$RUNNER" run test/ci)
           elif grep -q '"test":' package.json; then
-            ${{ steps.env-info.outputs.runner }} run test
+            test_command=("$RUNNER" run test)
+          else
+            exit 0
           fi
+          if [[ "$UPLOAD_TEST_LOG" != "true" ]]; then
+            exec "${test_command[@]}"
+          fi
+          log_dir=$(mktemp -d "$RUNNER_TEMP/test-output.XXXXXX")
+          echo "log_path=$log_dir/test.log" >> "$GITHUB_OUTPUT"
+          # Keep draining test output when the log reaches a file-size limit.
+          set +e
+          "${test_command[@]}" 2>&1 | (trap '' XFSZ; tee "$log_dir/test.log")
+          test_status=("${PIPESTATUS[@]}")
+          if (( test_status[0] != 0 )); then exit "${test_status[0]}"; fi
+          exit "${test_status[1]}"
         env:
+          UPLOAD_TEST_LOG: ${{ inputs.upload_test_log }}
+          CUSTOM_TEST_COMMAND: ${{ inputs.custom_test_command }}
           # Consumer scripts load env vars through wb/fnox (step-scoped; see the fnox check step above).
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          RUNNER: ${{ steps.env-info.outputs.runner }}
+      - if: ${{ always() && inputs.upload_test_log && steps.test.outputs.log_path != '' }}
+        name: Upload test log
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: test-output-${{ runner.os }}-${{ matrix.node-version || 'pinned' }}-${{ job.check_run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.test.outputs.log_path }}
+          retention-days: 14
+          if-no-files-found: error
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run lint-staged
         run: |
@@ -560,10 +600,10 @@ jobs:
           # The dry run's npm invocations expand these tokens from the generated .npmrc.
           TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
+      - if: ${{ always() && steps.checkout.outcome == 'success' && needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: test-artifact
+          name: test-artifact-${{ runner.os }}-${{ matrix.node-version || 'pinned' }}-${{ job.check_run_id }}-${{ github.run_attempt }}
           path: ${{ inputs.artifact_path }}
 
       # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path

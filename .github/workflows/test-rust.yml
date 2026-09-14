@@ -8,6 +8,7 @@ on:
         required: false
         type: string
       github_hosted_runner:
+        description: Cannot override repository visibility; private repositories always use self-hosted runners.
         required: false
         type: boolean
       paths_ignore:
@@ -15,6 +16,7 @@ on:
         required: false
         type: string
       runs_on:
+        description: JSON runner labels. Private overrides must be arrays containing self-hosted; other overrides use the default self-hosted pool.
         required: false
         type: string
       target_organization:
@@ -35,7 +37,7 @@ jobs:
   pre:
     # To avoid testing on synced (mirrored) repos.
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -49,13 +51,13 @@ jobs:
           paths_ignore: ${{ inputs.paths_ignore }}
   test-rust:
     needs: [pre]
-    runs-on: ${{ (inputs.runs_on && fromJSON(inputs.runs_on)) || ((!github.event.repository.private || inputs.github_hosted_runner) && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
+    runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON(format('["self-hosted", "{0}"]', inputs.ci_label)) }}
     env:
       CARGO_TERM_COLOR: always
     steps:
       # Fork pull-request code must never execute on persistent self-hosted runners: Cargo
       # build scripts and tests would run attacker-controlled code with a persistent workspace.
-      # Route fork PRs onto ephemeral runners via github_hosted_runner/runs_on instead.
+      # Public fork PRs use GitHub-hosted runners; private fork PRs are unsupported.
       - if: ${{ runner.environment == 'self-hosted' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         name: Reject fork pull requests on self-hosted runners
         run: |
@@ -65,7 +67,9 @@ jobs:
       # self-hosted runners, so self-hosted runners need no SSH deploy key. This workflow never
       # pushes, so the default ref (the pull-request merge ref) is checked out everywhere.
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Set up rustup
         # Self-hosted runners may not have rustup; install it once into the persistent home directory.
@@ -100,7 +104,7 @@ jobs:
           fi
       # Self-hosted runners keep the working directory (including target/) across runs.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: ${{ inputs.working_directory }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}

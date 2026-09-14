@@ -6,6 +6,12 @@
 
 A collection of reusable workflows for GitHub Actions.
 
+## Runner policy
+
+Private callers always use self-hosted runners. `github_hosted_runner` remains accepted but cannot override repository visibility. A private caller's `runs_on` must be a JSON array containing `self-hosted`, for example `'["self-hosted","Linux","large"]'`; other valid JSON selections fall back to the workflow's self-hosted defaults. Invalid JSON can fail expression evaluation. Keep any required OS, size, or host labels in that array.
+
+Public callers default to `ubuntu-latest` and may override `runs_on`. Unknown visibility uses self-hosted defaults. `bun run test` evaluates the workflow expressions with GitHub's expression engine to check this policy; CI runs it alongside actionlint.
+
 ## Secrets contract for callers
 
 The four install-capable workflows (`test.yml`, `deploy.yml`, `release.yml`, `run-script.yml`) declare these optional secrets:
@@ -34,3 +40,5 @@ Note: this repository is mirrored to `WillBoosterLab/reusable-workflows` with `o
 git rev-parse main
 gh api repos/WillBoosterLab/reusable-workflows/commits/main --jq '.commit.message | split("\n")[0]'
 ```
+
+The test workflow streams test output while preserving the test exit status. Local workflow log capture and upload are enabled together. Set `upload_test_log: true` only when test output contains no secrets: artifact files do not receive GitHub's console secret masking. This opt-in retains logs for 14 days after success or failure, with `test-output-<OS>-<Node>-<check-run-id>-<attempt>` names. Configured `artifact_path` uploads also run after failures, using matching `test-artifact-<OS>-<Node>-<check-run-id>-<attempt>` names. Node is `pinned` for a repository-managed version; the check-run ID distinguishes jobs and the attempt distinguishes reruns.
