@@ -69,7 +69,59 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         uses: actions/checkout@v7.0.1
         with:
+          # The pull-request merge commit's first parent (HEAD^1) is the base the Cargo.lock gate diffs against.
+          fetch-depth: 2
           persist-credentials: false
+      # Cargo's resolver has no minimum-publish-age gate before Rust 1.100, so a lockfile update can
+      # pull in a crate published minutes ago, and the build below would run its build scripts on this
+      # runner. Merge a fix that cannot wait 7 days by bypassing the ruleset. The line-based parser is
+      # sound only for the format cargo writes, so the PR's lockfile must use exactly that format: cargo
+      # also accepts other TOML spellings (e.g. `source="..."`, trailing comments) and other spellings of
+      # the crates.io source (e.g. a trailing `/`) that the parser would skip. Only crates.io and git
+      # sources are allowed, since no organization repository uses another registry. `cargo metadata` is
+      # no substitute, since it omits entries for inactive optional dependencies. The base lockfile is
+      # trusted, and entries missed there only widen the check.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event_name == 'pull_request' }}
+        name: Reject crates.io versions published less than 7 days ago
+        timeout-minutes: 15
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          MIN_AGE_DAYS: 7
+        run: |
+          if [[ ! -f Cargo.lock ]] || git show HEAD^1:./Cargo.lock 2> /dev/null | cmp -s - Cargo.lock; then exit 0; fi
+          if awk '!/^$/ && !/^#/ && !/^(version = [0-9]+|\[\[(package|patch\.unused)\]\]|(name|version|checksum|replace) = "[^"\\]*"|source = "(registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index|sparse\+https:\/\/index\.crates\.io\/|git\+[^"\\]*)"|dependencies = \[| "[^"\\]*",|\])$/ { print "::error::Cargo.lock line " NR " is not in the format cargo writes or names a source other than crates.io or git; regenerate the lockfile with cargo."; bad = 1 } END { exit !bad }' Cargo.lock; then
+            exit 1
+          fi
+          crates_io_packages() {
+            awk '/^\[/ { name = ""; version = "" }
+              /^name = / { name = $3 } /^version = / { version = $3 }
+              $0 == "source = \"registry+https://github.com/rust-lang/crates.io-index\"" || $0 == "source = \"sparse+https://index.crates.io/\"" { print name, version }' |
+              tr -d '"' | sort -u
+          }
+          failed=0
+          while read -r name version; do
+            lower="$(tr '[:upper:]' '[:lower:]' <<< "$name")"
+            case "${#lower}" in
+              1) index_path="1/$lower" ;;
+              2) index_path="2/$lower" ;;
+              3) index_path="3/${lower:0:1}/$lower" ;;
+              *) index_path="${lower:0:2}/${lower:2:2}/$lower" ;;
+            esac
+            if ! index_entries="$(curl --connect-timeout 10 --max-time 60 --fail --show-error --silent --retry 5 "https://index.crates.io/$index_path")"; then
+              echo "::error::Could not fetch $name from the crates.io index (unknown crate or network error); re-run this job if the error was transient."
+              failed=1
+              continue
+            fi
+            age_days="$(jq -r --arg version "$version" 'select(.vers == $version and .pubtime) | (now - (.pubtime | fromdateiso8601)) / 86400 | floor' <<< "$index_entries")"
+            if [[ -z "$age_days" ]]; then
+              echo "::error::$name $version is not in the crates.io index with a publish time."
+              failed=1
+            elif (( age_days < MIN_AGE_DAYS )); then
+              echo "::error::$name $version was published $age_days day(s) ago; crates.io versions must be at least $MIN_AGE_DAYS days old. Re-run this job once it is."
+              failed=1
+            fi
+          done < <(comm -13 <(git show HEAD^1:./Cargo.lock 2> /dev/null | crates_io_packages) <(crates_io_packages < Cargo.lock))
+          exit "$failed"
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Set up rustup
         # Self-hosted runners may not have rustup; install it once into the persistent home directory.
