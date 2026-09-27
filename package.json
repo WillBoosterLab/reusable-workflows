@@ -12,7 +12,7 @@
     "prepare": "lefthook install || true",
     "sync": "one-way-git-sync -v -i node_modules -i renovate.jsonc -d git@github.com:WillBoosterLab/reusable-workflows.git -b main",
     "sync-force": "bun run sync --force",
-    "test": "bun .github/scripts/checkRunnerPolicy.mjs && bun .github/scripts/checkTestOutput.mjs",
+    "test": "bun .github/scripts/checkRunnerPolicy.mjs && bun .github/scripts/checkTestOutput.mjs && bun .github/scripts/checkSemanticPrTitle.mjs",
     "verify": "bun node_modules/@willbooster/wb/bin/index.js verify",
     "verify-full": "bun node_modules/@willbooster/wb/bin/index.js verify --full"
   },

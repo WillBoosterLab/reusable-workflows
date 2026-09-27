@@ -11,15 +11,100 @@ jobs:
   semantic-pr:
     if: ${{ !inputs.target_organization || github.repository_owner == inputs.target_organization }}
     runs-on: ${{ (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
-    env:
-      FORCE_COLOR: 3
-      # PR titles become the squash commit messages, which WillBooster writes in English.
-      JAPANESE_CHARACTER_RANGES: '\u2e80-\u33ff\u3400-\u9fff\uf900-\ufaff\ufe10-\ufe1f\ufe30-\ufe6f\uff00-\uffef\ud82b-\ud82c\ud840-\ud8bf'
+    timeout-minutes: 5
     steps:
-      - uses: amannn/action-semantic-pull-request@45b9ed7cf24087a2f7785bf55be97394ba87e1c2
-        with:
-          subjectPattern: ${{ format('^[^{0}]+$', env.JAPANESE_CHARACTER_RANGES) }}
-          subjectPatternError: 'The subject "{subject}" contains Japanese characters. Write the PR title in English.'
-          disallowScopes: ${{ format('.*[{0}].*', env.JAPANESE_CHARACTER_RANGES) }}
+      # Replaces amannn/action-semantic-pull-request with the same rules (its default types and the
+      # conventional-changelog header patterns), so no third-party code runs with the token.
+      # The PR title is an attacker-controlled script-injection source, so it is read at run time
+      # instead of being interpolated into the script.
+      - shell: node {0}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PULL_REQUEST_URL: ${{ github.event.pull_request.url }}
+        run: |
+          const TYPES = {
+            feat: 'A new feature',
+            fix: 'A bug fix',
+            docs: 'Documentation only changes',
+            style: 'Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)',
+            refactor: 'A code change that neither fixes a bug nor adds a feature',
+            perf: 'A code change that improves performance',
+            test: 'Adding missing tests or correcting existing tests',
+            build: 'Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)',
+            ci: 'Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)',
+            chore: "Other changes that don't modify src or test files",
+            revert: 'Reverts a previous commit',
+          };
+          // The breaking pattern goes first because the two split titles like `feat(a)!: b): c` differently.
+          const HEADER_PATTERNS = [/^(\w*)(?:\((.*)\))?!: (.*)$/, /^(\w*)(?:\((.*)\))?!?: (.*)$/];
+          // PR titles become the squash commit messages, which WillBooster writes in English.
+          // CJK radicals/symbols, kana, kanji (incl. supplementary planes) and full-width forms.
+          const JAPANESE_CHARACTERS =
+            /[\u{2E80}-\u{33FF}\u{3400}-\u{9FFF}\u{F900}-\u{FAFF}\u{FE10}-\u{FE1F}\u{FE30}-\u{FE6F}\u{FF00}-\u{FFEF}\u{1AC00}-\u{1B3FF}\u{20000}-\u{3FFFF}]/gu;
+
+          // `shell: node` runs the machine's PATH node, not the runner's bundled one.
+          if (typeof fetch === 'function') {
+            main().catch((error) => {
+              reportError(error.message);
+            });
+          } else {
+            reportError(`This step requires Node.js 18 or later on PATH, but found ${process.version} at ${process.execPath}.`);
+          }
+
+          async function main() {
+            // The title is printed only inside `::error::` data: the runner also parses legacy `##[command]`
+            // markers anywhere in a bare line, so an untrusted title must not be logged on its own line.
+            const title = await fetchTitle();
+            const errors = validateTitle(title);
+            for (const error of errors) reportError(error);
+            if (errors.length === 0) console.log('The PR title is valid.');
+          }
+
+          async function fetchTitle() {
+            if (!process.env.PULL_REQUEST_URL) {
+              throw new Error('This workflow must be triggered by a pull_request or pull_request_target event.');
+            }
+            // Re-running a job reuses the original event payload, whose title may be outdated.
+            const response = await fetch(process.env.PULL_REQUEST_URL, {
+              headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
+            });
+            if (!response.ok) {
+              throw new Error(`Failed to fetch the pull request (${response.status}): ${await response.text()}`);
+            }
+            return (await response.json()).title;
+          }
+
+          function validateTitle(title) {
+            const errors = [];
+            // Like conventional-commits-parser, parse only the first line as the header.
+            const header = title.replace(/^[\r\n]+|[\r\n]+$/g, '').split(/\r?\n/)[0];
+            const [, type, , subject] = HEADER_PATTERNS.map((pattern) => header.match(pattern)).find(Boolean) ?? [];
+            const availableTypes = Object.entries(TYPES).map(([name, description]) => ` - ${name}: ${description}`).join('\n');
+            if (!type) {
+              errors.push(
+                `No release type found in pull request title "${title}". Add a prefix to indicate what kind of release this pull request corresponds to. For reference, see https://www.conventionalcommits.org/\n\nAvailable types:\n${availableTypes}`
+              );
+            } else if (!Object.hasOwn(TYPES, type)) {
+              errors.push(`Unknown release type "${type}" found in pull request title "${title}".\n\nAvailable types:\n${availableTypes}`);
+            }
+            if (type && !subject?.trim()) {
+              errors.push(`No subject found in pull request title "${title}".`);
+            }
+            const japaneseCharacters = [...new Set(title.match(JAPANESE_CHARACTERS))];
+            if (japaneseCharacters.length > 0) {
+              errors.push(
+                `The pull request title "${title}" contains Japanese characters (${japaneseCharacters.join(' ')}). Write the PR title in English.`
+              );
+            }
+            return errors;
+          }
+
+          function reportError(message) {
+            console.log(`::error::${escapeCommand(message)}`);
+            process.exitCode = 1;
+          }
+
+          // Keeps untrusted text on the command's line so its line breaks cannot start another workflow command.
+          function escapeCommand(text) {
+            return text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+          }
