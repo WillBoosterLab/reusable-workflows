@@ -18,8 +18,8 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@willbooster/wb": "22.4.0",
-    "lefthook": "2.1.12",
+    "@willbooster/wb": "22.8.0",
+    "lefthook": "2.1.14",
     "one-way-git-sync": "6.0.46",
     "sort-package-json": "4.0.0"
   }

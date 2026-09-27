@@ -13,9 +13,13 @@ jobs:
     runs-on: ${{ (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
     env:
       FORCE_COLOR: 3
+      # PR titles become the squash commit messages, which WillBooster writes in English.
+      JAPANESE_CHARACTER_RANGES: '\u2e80-\u33ff\u3400-\u9fff\uf900-\ufaff\ufe10-\ufe1f\ufe30-\ufe6f\uff00-\uffef\ud82b-\ud82c\ud840-\ud8bf'
     steps:
       - uses: amannn/action-semantic-pull-request@45b9ed7cf24087a2f7785bf55be97394ba87e1c2
         with:
-          wip: true
+          subjectPattern: ${{ format('^[^{0}]+$', env.JAPANESE_CHARACTER_RANGES) }}
+          subjectPatternError: 'The subject "{subject}" contains Japanese characters. Write the PR title in English.'
+          disallowScopes: ${{ format('.*[{0}].*', env.JAPANESE_CHARACTER_RANGES) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
