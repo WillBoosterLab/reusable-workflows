@@ -199,7 +199,9 @@ function postRequest(requestPath) {
   return execFileSync(
     'curl',
     [
-      '--fail-with-body',
+      // stdout is parsed as one JSON document. --fail-with-body preserves each retried
+      // HTTP error body there, concatenating it with the eventual successful response.
+      '--fail',
       // Railway's proxy allows roughly 300 seconds per request; stay just below it so large
       // uncached lockfile diffs can finish while retries make incremental progress via the
       // service's persistent scan cache.

@@ -50,8 +50,7 @@ runs:
         HAS_VERDACCIO_TOKEN: ${{ inputs.has-verdaccio-token }}
       run: |
         : # .git is referenced as a literal directory: these actions always run at the root of
-        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file),
-        : # matching the pre-existing dotenv/.npmrc hide pattern in the calling workflows.
+        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file).
         prepare() {
           : # Recover state a crashed previous run may have left behind (the always() cleanup
           : # cannot run when the runner dies): clear a stale skip-worktree bit and restore the
@@ -67,7 +66,7 @@ runs:
           rm -f "$2"
           mv "$1" "$2"
           : # Ignore rules never hide tracked files, so hide a committed file from the
-          : # commit-and-push workflows with skip-worktree (the dotenv-hide pattern).
+          : # commit-and-push workflows with skip-worktree.
           if git ls-files --error-unmatch -- "$2" > /dev/null 2>&1; then
             git update-index --skip-worktree -- "$2"
           elif ! grep -qxF "/$2" .git/info/exclude 2> /dev/null; then

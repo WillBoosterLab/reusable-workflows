@@ -16,10 +16,6 @@ on:
       deploy_command:
         required: false
         type: string
-      dot_env_path:
-        default: .env
-        required: false
-        type: string
       environment:
         required: true
         type: string
@@ -71,8 +67,6 @@ on:
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
-      DOT_ENV:
-        required: false
       FILE_CONTENT_1:
         required: false
       FILE_CONTENT_2:
@@ -111,7 +105,6 @@ jobs:
       # the consumer script steps), so dependency lifecycle scripts run by the installs and the
       # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
-      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FLY_API_TOKEN: ${{ !!secrets.FLY_API_TOKEN }}
       HAS_GCP_SA_KEY_JSON: ${{ !!secrets.GCP_SA_KEY_JSON }}
       HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
@@ -156,11 +149,6 @@ jobs:
           fetch-tags: true
       # Secrets are passed via env and written with printf so that quotes or backslashes in
       # their values cannot break out of the shell command.
-      - if: ${{ env.HAS_DOT_ENV == 'true' }}
-        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
-        env:
-          DOT_ENV: ${{ secrets.DOT_ENV }}
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - if: ${{ inputs.file_path_1 && env.HAS_FILE_CONTENT_1 == 'true' }}
         run: printf '%s\n' "$FILE_CONTENT_1" > "$FILE_PATH_1"
         env:
@@ -197,7 +185,7 @@ jobs:
         env:
           WORKING_DIRECTORY: ${{ inputs.working_directory }}
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           check-latest: true
           node-version: lts/*
@@ -208,7 +196,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version || steps.check-gcloud.outputs.require-gcloud }}
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@v5.2.2
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       # A mere FNOX_AGE_KEY presence check cannot catch a wrong key (fnox exits 0 and silently
@@ -563,18 +551,15 @@ jobs:
           CONTENT_JSON: ${{ toJSON(format('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<br>{0} の本番環境 ({1}) を {2} に更新しました。<br>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', env.REPO_LINK, inputs.server_url, env.COMMIT_LINK)) }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-
       - if: ${{ always() }}
         name: Delete credential files
         run: |
           if [[ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then rm -f -- "$GOOGLE_APPLICATION_CREDENTIALS"; fi
           : # Delete each file only when this run actually wrote it (the caller may commit
           : # files at these paths and run without the corresponding secret).
-          if [[ "$HAS_DOT_ENV" == "true" ]]; then rm -f -- "$DOT_ENV_PATH"; fi
           if [[ "$HAS_FILE_CONTENT_1" == "true" && -n "$FILE_PATH_1" ]]; then rm -f -- "$FILE_PATH_1"; fi
           if [[ "$HAS_FILE_CONTENT_2" == "true" && -n "$FILE_PATH_2" ]]; then rm -f -- "$FILE_PATH_2"; fi
         env:
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
           FILE_PATH_1: ${{ inputs.file_path_1 }}
           FILE_PATH_2: ${{ inputs.file_path_2 }}
       - if: ${{ always() && env.HAS_REGISTRY_TOKEN == 'true' }}

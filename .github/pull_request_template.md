@@ -1,41 +1,27 @@
 Close #<IssueNumber>
 
-## Self Check
+<!-- Write for a reviewer who has not followed the work. Write in English, except text whose language is part of what the code handles (e.g., UI strings, test inputs). Scale each section to the change: a sentence for a small change, numbered subsections for a large one. Delete this comment and the placeholder comments below. -->
 
-- [ ] I've confirmed `All checks have passed` on this page.
-  - PR title follows [Angular's commit message format](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#-commit-message-format).
-  - PR title doesn't have `WIP:`.
-  - The test command (e.g., `yarn test`) passed.
-  - The lint command (e.g., `yarn lint`) passed.
-  - You may leave this box unchecked due to long workflows.
-- [ ] I've reviewed my changes on the GitHub diff view.
-- [ ] I've written the steps to test my changes.
-- [ ] I've added screenshots (if the UI changed).
-  - You may leave this box unchecked if you didn't modify the UI.
+## Why
 
-<!-- Please add screenshots if you modify the UI.
-| Current                  | In coming                |
-| ------------------------ | ------------------------ |
-| <img src="" width="400"> | <img src="" width="400"> |
--->
+<!-- The problem, with the numbers or observations behind it, and why this approach over the alternatives. -->
 
-<!-- Please add steps to test your changes.
-## Steps to Test
+## Requirements
 
-1. Open http://localhost-exercode.willbooster.net:3000/ja-JP/courses/_example/lessons/_example_a_plus_b/problems/_example_a_plus_b after login.
-2. Select the language `C`.
-3. Write the following code:
-   ```c
-   #include <stdio.h>
+<!-- The requirements the change must satisfy and the guarantees it must keep as they stand now, one per line, each marked `required` (asked for by the requester, or an existing contract callers depend on) or `chosen` (the implementer's own decision with the reason that decided it, which a simpler design may replace); state the requester's instructions in the requester's terms, whether they came from an issue or a conversation, and keep each line as it is until the requester overrides or withdraws the instruction behind it or the decision behind it changes, and then rewrite or remove that line instead of adding one beside it. -->
 
-   int main(void) {
-     int a, b;
+## Customer Summary
 
-     scanf("%d %d", &a, &b);
-     printf("%d", a + b);
-     return 0;
-   }
-   ```
-4. Push `Submit` button.
-5. ...
--->
+<!-- Behavior, workflow, or user-visible changes, written for readers who know nothing about the implementation. -->
+
+## Technical Summary
+
+<!-- Decisions and their reasons, data flow, where to look (the files that matter most), and what to check hardest: the parts whose correctness is argued rather than proven. -->
+
+## Testing
+
+<!-- Commands run, tests added, and what was NOT exercised and why. -->
+
+## Notes
+
+<!-- Known limitations, compatibility and migration, follow-up work; delete this section if there is none. -->

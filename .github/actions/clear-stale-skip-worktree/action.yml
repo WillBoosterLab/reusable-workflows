@@ -1,6 +1,6 @@
 name: Clear stale skip-worktree bits
 description: >-
-  A crashed run can leave skip-worktree bits (from the .npmrc/dotenv hide steps) that survive every
+  A crashed run can leave skip-worktree bits (from the registry-config hide steps) that survive every
   reset/clean and make checkout fail once the consumer deletes the committed file, permanently
   wedging a persistent workspace — clear them before checkout.
 runs:

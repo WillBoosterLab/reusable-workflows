@@ -11,8 +11,7 @@ runs:
       shell: bash
       run: |
         : # .git is referenced as a literal directory: these actions always run at the root of
-        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file),
-        : # matching the pre-existing dotenv/.npmrc hide pattern in the calling workflows.
+        : # an actions/checkout clone (never a worktree/submodule layout, where .git is a file).
         for FILE in .npmrc .yarnrc.yml; do
           if git ls-files --error-unmatch -- "$FILE" > /dev/null 2>&1; then
             git update-index --no-skip-worktree -- "$FILE" 2> /dev/null || true

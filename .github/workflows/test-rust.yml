@@ -80,13 +80,15 @@ jobs:
       # the crates.io source (e.g. a trailing `/`) that the parser would skip. Only crates.io and git
       # sources are allowed, since no organization repository uses another registry. `cargo metadata` is
       # no substitute, since it omits entries for inactive optional dependencies. The base lockfile is
-      # trusted, and entries missed there only widen the check.
+      # trusted, and entries missed there only widen the check. Crates the organization publishes itself
+      # are exempt so that its repositories can adopt a release immediately.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event_name == 'pull_request' }}
         name: Reject crates.io versions published less than 7 days ago
         timeout-minutes: 15
         working-directory: ${{ inputs.working_directory }}
         env:
           MIN_AGE_DAYS: 7
+          EXCLUDED_CRATES: willbooster-tree-sitter willbooster-tree-sitter-c willbooster-tree-sitter-c-sharp willbooster-tree-sitter-cpp willbooster-tree-sitter-css willbooster-tree-sitter-dart willbooster-tree-sitter-embedded-template willbooster-tree-sitter-go willbooster-tree-sitter-haskell willbooster-tree-sitter-html willbooster-tree-sitter-java willbooster-tree-sitter-javascript willbooster-tree-sitter-kotlin willbooster-tree-sitter-md willbooster-tree-sitter-php willbooster-tree-sitter-python willbooster-tree-sitter-ruby willbooster-tree-sitter-rust willbooster-tree-sitter-typescript willbooster-tree-sitter-xml willbooster-tree-sitter-zig
         run: |
           if [[ ! -f Cargo.lock ]] || git show HEAD^1:./Cargo.lock 2> /dev/null | cmp -s - Cargo.lock; then exit 0; fi
           if awk '!/^$/ && !/^#/ && !/^(version = [0-9]+|\[\[(package|patch\.unused)\]\]|(name|version|checksum|replace) = "[^"\\]*"|source = "(registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index|sparse\+https:\/\/index\.crates\.io\/|git\+[^"\\]*)"|dependencies = \[| "[^"\\]*",|\])$/ { print "::error::Cargo.lock line " NR " is not in the format cargo writes or names a source other than crates.io or git; regenerate the lockfile with cargo."; bad = 1 } END { exit !bad }' Cargo.lock; then
@@ -100,6 +102,7 @@ jobs:
           }
           failed=0
           while read -r name version; do
+            if [[ " $EXCLUDED_CRATES " == *" $name "* ]]; then continue; fi
             lower="$(tr '[:upper:]' '[:lower:]' <<< "$name")"
             case "${#lower}" in
               1) index_path="1/$lower" ;;
@@ -156,7 +159,7 @@ jobs:
           fi
       # Self-hosted runners keep the working directory (including target/) across runs.
       - if: ${{ needs.pre.outputs.should_skip != 'true' && runner.environment != 'self-hosted' }}
-        uses: Swatinem/rust-cache@v2.9.2
+        uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: ${{ inputs.working_directory }}
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}

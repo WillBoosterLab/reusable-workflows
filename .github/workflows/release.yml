@@ -3,8 +3,13 @@ name: Release
 on:
   workflow_call:
     inputs:
-      dot_env_path:
-        default: .env
+      artifact_name:
+        description: Artifact from this workflow run to download before building and releasing
+        required: false
+        type: string
+      artifact_path:
+        description: Destination for the downloaded release artifact
+        default: .tmp/release-artifacts
         required: false
         type: string
       environment:
@@ -40,8 +45,6 @@ on:
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
-      DOT_ENV:
-        required: false
       FILE_CONTENT_1:
         required: false
       FNOX_AGE_KEY:
@@ -50,10 +53,13 @@ on:
       GH_TOKEN:
         required: true
       NPM_TOKEN:
-        description: 'auth token for registry.npmjs.org, for packages that token-publish (e.g. first publishes of platform packages, which npm trusted publishing cannot create). Use a granular, package-scoped, short-lived publish token and revoke it once trusted publishing takes over. It reaches only the Release step env: semantic-release''s npm plugin reads it, and a consumer release script publishing directly must write its own npm auth config from the env var (the generated workspace .npmrc carries no registry.npmjs.org line).'
+        description: "auth token for registry.npmjs.org, for packages that token-publish (e.g. first publishes of platform packages, which npm trusted publishing cannot create). Use a granular, package-scoped, short-lived publish token and revoke it once trusted publishing takes over. It reaches only the Release step env: semantic-release's npm plugin reads it, and a consumer release script publishing directly must write its own npm auth config from the env var (the generated workspace .npmrc carries no registry.npmjs.org line)."
         required: false
       TAKUMI_GUARD_TOKEN:
         description: auth token for the Takumi Guard malicious-package-blocking registry proxy (used to generate registry configs)
+        required: false
+      VERDACCIO_PUBLISH_TOKEN:
+        description: publish-capable auth token for the private Verdaccio registry. It reaches only the Release step env, replacing VERDACCIO_TOKEN (the install token) there.
         required: false
       VERDACCIO_TOKEN:
         description: auth token for the private Verdaccio registry (used to generate registry configs)
@@ -81,16 +87,18 @@ jobs:
       # the consumer script steps), so dependency lifecycle scripts run by the installs and the
       # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
-      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
-      # Either registry token triggers the registry-config generation/cleanup and the hardened
-      # install path (scripts-disabled credentialed install + tokenless lifecycle replay).
-      HAS_REGISTRY_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.TAKUMI_GUARD_TOKEN }}
+      # Any registry token (VERDACCIO_PUBLISH_TOKEN included) triggers the registry-config
+      # generation/cleanup and the hardened install path (scripts-disabled credentialed install
+      # + tokenless lifecycle replay).
+      HAS_REGISTRY_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.VERDACCIO_PUBLISH_TOKEN || !!secrets.TAKUMI_GUARD_TOKEN }}
       HAS_TAKUMI_GUARD_TOKEN: ${{ !!secrets.TAKUMI_GUARD_TOKEN }}
       # Non-secret signal for the `if:` gates below; the VERDACCIO_TOKEN and TAKUMI_GUARD_TOKEN
       # secrets themselves are provided step-scoped only to the steps whose package-manager
       # invocations expand them from the generated registry configs.
-      HAS_VERDACCIO_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN }}
+      # A publish-token-only caller still needs the Verdaccio auth line that the Release step
+      # expands; its install then fails with a clear auth error instead of a misrouted lookup.
+      HAS_VERDACCIO_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.VERDACCIO_PUBLISH_TOKEN }}
       # Defined-but-empty defaults: yarn1 crashes with "Failed to replace env in config" when a
       # .npmrc references an UNDEFINED env var (an empty one is fine), so steps that are not
       # given the secrets still need the variables to exist while the generated .npmrc is on
@@ -104,13 +112,6 @@ jobs:
       - name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       - uses: actions/checkout@v7.0.1
-      # The secret is passed via env and written with printf so that quotes or backslashes in
-      # its value cannot break out of the shell command.
-      - if: ${{ env.HAS_DOT_ENV == 'true' }}
-        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
-        env:
-          DOT_ENV: ${{ secrets.DOT_ENV }}
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - name: Check version files
         id: check-ver
         run: |
@@ -123,9 +124,9 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
           check-latest: true
       - if: ${{ steps.check-ver.outputs.exist-any-version && runner.environment == 'self-hosted' }}
         name: Setup isolated GPG home
@@ -134,7 +135,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@v5.2.2
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Ensure fnox secrets are resolvable
@@ -274,6 +275,12 @@ jobs:
               ${{ steps.env-info.outputs.runner }} install ${{ steps.env-info.outputs.skip-scripts-option }}
             }
           fi
+      - if: ${{ inputs.artifact_name }}
+        name: Download release artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.artifact_path || '.tmp/release-artifacts' }}
       - if: ${{ !inputs.skip_build }}
         name: Build
         run: if [[ "$(cat package.json)" == *'"build":'* ]]; then ${{ steps.env-info.outputs.runner }} run build; fi
@@ -284,7 +291,10 @@ jobs:
       # After waiting in the concurrency queue, a run can be older than the branch head a
       # later run already released from; releasing from the stale checkout could publish a
       # lower version after a higher one. GitHub does not guarantee queue ordering, so skip
-      # whenever the remote branch head has moved past this run's commit.
+      # whenever the remote branch head has moved past this run's commit. A head moved by a
+      # push that creates no run (e.g. [skip ci]) only defers this commit's release to the
+      # next run: semantic-release does not release from a commit behind the branch head
+      # anyway, and the next release includes every unreleased commit.
       - name: Check whether this run is stale
         id: stale-check
         # Branch-triggered runs only: a tag/dispatch ref has no refs/heads entry. A missing
@@ -292,10 +302,7 @@ jobs:
         # workflow with GITHUB_SHA reset to the default branch, which must never be
         # released. ls-remote's status is read un-piped with --exit-code (2 = ref absent;
         # anything else non-zero is a transport error, retried once then failed loudly —
-        # nothing has been released yet, so a re-run recovers cleanly). A moved head marks
-        # the run stale only when a successor run exists for the new head: renovate
-        # branch-automerges and [skip ci] pushes move the head WITHOUT creating a run, and
-        # skipping then would silently drop this commit's release.
+        # nothing has been released yet, so a re-run recovers cleanly).
         run: |
           if [[ "$GITHUB_REF" == refs/heads/* ]]; then
             ls_head() { git ls-remote --exit-code origin "refs/heads/$GITHUB_REF_NAME"; }
@@ -308,31 +315,27 @@ jobs:
               echo "::error::Could not read refs/heads/$GITHUB_REF_NAME on origin (git ls-remote exited $rc); nothing has been released — re-run the job."
               exit 1
             fi
-            if [[ $rc -eq 2 ]]; then
+            REMOTE_HEAD=$(printf '%s' "$LS_OUT" | cut -f1)
+            if [[ $rc -eq 2 && "$GITHUB_RUN_ATTEMPT" != "1" ]]; then
+              echo "::error::This re-run cannot release: $GITHUB_REF_NAME was deleted. Release from a branch that still exists."
+              exit 1
+            elif [[ $rc -eq 2 ]]; then
               echo "::warning::Skipping the release: $GITHUB_REF_NAME was deleted."
               echo "stale=true" >> "$GITHUB_OUTPUT"
-            else
-              REMOTE_HEAD=$(printf '%s' "$LS_OUT" | cut -f1)
-              if [[ "$REMOTE_HEAD" != "$GITHUB_SHA" ]]; then
-                : # A gh failure must not silently disable this guard (nor silently skip the
-                : # release): retry once, then fail loudly — nothing has been released yet.
-                run_count() { gh run list --commit "$REMOTE_HEAD" --workflow "$GITHUB_WORKFLOW" --json databaseId --jq length; }
-                SUCCESSOR_RUNS=$(run_count) || { sleep 5; SUCCESSOR_RUNS=$(run_count); } || {
-                  echo "::error::Could not list workflow runs for $REMOTE_HEAD; nothing has been released — re-run the job."
-                  exit 1
-                }
-                if [[ "$SUCCESSOR_RUNS" != "0" ]]; then
-                  echo "::warning::Skipping the release: $GITHUB_REF_NAME moved to $REMOTE_HEAD and a newer run exists for it."
-                  echo "stale=true" >> "$GITHUB_OUTPUT"
-                fi
-              fi
+            elif [[ "$REMOTE_HEAD" != "$GITHUB_SHA" && "$GITHUB_RUN_ATTEMPT" != "1" ]]; then
+              : # The successor run may have finished before this re-run's failure was fixed, so
+              : # skipping could leave the commit unreleased without anyone noticing.
+              echo "::error::This re-run cannot release: $GITHUB_REF_NAME moved to $REMOTE_HEAD, and semantic-release does not release from an older commit. Re-run the latest Release run for $REMOTE_HEAD instead, or push a commit to $GITHUB_REF_NAME when no run exists for it."
+              exit 1
+            elif [[ "$REMOTE_HEAD" != "$GITHUB_SHA" ]]; then
+              echo "::warning::Skipping the release: $GITHUB_REF_NAME moved to $REMOTE_HEAD; the next release from $REMOTE_HEAD or a later commit includes this commit's changes (push a commit when no run is pending)."
+              echo "stale=true" >> "$GITHUB_OUTPUT"
             fi
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
       # This baseline feeds the new-release check that gates the deploy trigger and the
-      # Discord notification, so skip it (and its fetch cost) when neither is configured.
-      - if: ${{ steps.stale-check.outputs.stale != 'true' && (inputs.trigger_deploy_workflow || env.HAS_DISCORD_WEBHOOK_URL == 'true') }}
+      # Discord notification, and the re-run check, so skip it (and its fetch cost) when
+      # none of them applies.
+      - if: ${{ steps.stale-check.outputs.stale != 'true' && (inputs.trigger_deploy_workflow || env.HAS_DISCORD_WEBHOOK_URL == 'true' || github.run_attempt != '1') }}
         name: Record the tags existing before the release
         id: pre-release-tag
         # The checkout is shallow and tag-less, so fetch the tags first (`--unshallow` on a
@@ -362,6 +365,7 @@ jobs:
           FILE_PATH_1: ${{ inputs.file_path_1 }}
       - if: ${{ steps.stale-check.outputs.stale != 'true' }}
         name: Release
+        id: release
         run: |
           if [[ "$(cat package.json)" == *'"release":'* ]]; then
             ${{ steps.env-info.outputs.runner }} run release
@@ -379,15 +383,34 @@ jobs:
           FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # PAT with contents:write
           # semantic-release's npm plugin reads the NPM_TOKEN env var for registry auth.
-          # The dedicated npmjs publish token wins; VERDACCIO_TOKEN doubles as the publish
-          # auth only for repositories that publish to the private registry (a repository
-          # may hold both secrets — VERDACCIO_TOKEN is primarily the install token).
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN || secrets.VERDACCIO_TOKEN }}
-          # The release script's npm invocations expand these tokens from the generated .npmrc.
+          # The dedicated npmjs publish token wins; the Verdaccio publish token serves
+          # repositories that publish to the private registry.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN || secrets.VERDACCIO_PUBLISH_TOKEN }}
+          # The release script's npm invocations expand these tokens from the generated .npmrc,
+          # whose Verdaccio auth line must carry the publish token for a direct `npm publish`;
+          # non-publishing callers keep their read-only install token for reinstalls.
           TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
-          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_PUBLISH_TOKEN || secrets.VERDACCIO_TOKEN }}
           HUSKY: 0
           LEFTHOOK: 0
+      # A re-run is how a failed release is retried, but semantic-release releases nothing for a
+      # commit that a tag already covers, e.g. a tag a failed attempt pushed before its publish
+      # failed. Fail instead of succeeding with nothing released.
+      - if: ${{ github.run_attempt != '1' && steps.release.outcome == 'success' && steps.pre-release-tag.outcome == 'success' }}
+        name: Check that the re-run released
+        # A failed fetch keeps the local tags, which include any tag this attempt pushed, so the
+        # check still holds after a transient error.
+        run: |
+          git fetch --prune --prune-tags --tags --force || { sleep 5; git fetch --prune --prune-tags --tags --force; } || true
+          git tag --list | sort > "$RUNNER_TEMP/tags-after-rerun.txt"
+          # Only a new tag at GITHUB_SHA or a descendant is this attempt's release.
+          git tag --contains "$GITHUB_SHA" | sort > "$RUNNER_TEMP/tags-covering-sha.txt"
+          NEW_COVERING_TAGS=$(comm -13 "$RUNNER_TEMP/tags-before-release.txt" "$RUNNER_TEMP/tags-after-rerun.txt" | comm -12 - "$RUNNER_TEMP/tags-covering-sha.txt")
+          COVERING_TAGS=$(tr '\n' ' ' < "$RUNNER_TEMP/tags-covering-sha.txt")
+          if [[ -z "$NEW_COVERING_TAGS" && -n "$COVERING_TAGS" ]]; then
+            echo "::error::This re-run released nothing because ${COVERING_TAGS% } already covers $GITHUB_SHA. If an earlier attempt pushed it and then failed: when it published and only a later step failed, keep the tag (if that step was the deploy dispatch, run \`gh workflow run <deploy workflow> --ref <tag>\`; a failed announcement needs nothing re-run); when it published only partly, complete the remaining publish steps manually; when no publish step ran, delete the tag and its refs/notes/semantic-release-<tag> ref and re-run."
+            exit 1
+          fi
 
       # !cancelled(): semantic-release can fail AFTER pushing its tag (e.g. a later publish
       # plugin); the pushed release must still be detected and deployed — a re-run cannot
@@ -510,14 +533,12 @@ jobs:
           CONTENT_JSON: ${{ toJSON(format('[{0}]({1})のリリースに[失敗]({1}/actions/runs/{2})しました。', github.event.repository.name, github.event.repository.html_url, github.run_id)) }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      # Delete only files this run wrote: both input paths can name files a consumer commits.
-      - if: ${{ always() && (env.HAS_DOT_ENV == 'true' || env.HAS_FILE_CONTENT_1 == 'true') }}
+      # Delete only the file this run wrote: file_path_1 can name a file a consumer commits.
+      - if: ${{ always() && env.HAS_FILE_CONTENT_1 == 'true' }}
         name: Delete credential files
         run: |
-          if [[ "$HAS_DOT_ENV" == "true" ]]; then rm -f -- "$DOT_ENV_PATH"; fi
           if [[ "$HAS_FILE_CONTENT_1" == "true" && -n "$FILE_PATH_1" ]]; then rm -f -- "$FILE_PATH_1"; fi
         env:
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
           FILE_PATH_1: ${{ inputs.file_path_1 }}
       - if: ${{ always() && env.HAS_REGISTRY_TOKEN == 'true' }}
         name: Clean up the generated registry configs

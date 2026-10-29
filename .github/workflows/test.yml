@@ -18,10 +18,6 @@ on:
       custom_test_command:
         required: false
         type: string
-      dot_env_path:
-        default: .env
-        required: false
-        type: string
       environment:
         required: false
         type: string
@@ -44,13 +40,14 @@ on:
         required: false
         type: boolean
     secrets:
-      DOT_ENV:
-        required: false
       FNOX_AGE_KEY:
         description: age secret key to decrypt fnox.toml secrets
         required: false
       GH_TOKEN:
         required: true
+      RAILWAY_API_TOKEN:
+        description: Railway API token for the caller's deploy-test script (used to plan infrastructure changes without deploying)
+        required: false
       TAKUMI_GUARD_TOKEN:
         description: auth token for the Takumi Guard malicious-package-blocking registry proxy (used to generate registry configs)
         required: false
@@ -106,7 +103,7 @@ jobs:
             echo "require-node-install=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ steps.check-node.outputs.require-node-install }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           check-latest: true
           node-version: lts/*
@@ -142,7 +139,6 @@ jobs:
       # step-scoped only to the steps that actually run fnox (the check-fnox-secrets action and
       # the consumer script steps), so dependency lifecycle scripts run by the installs and the
       # lifecycle replay below can never read the long-lived age identity (#458).
-      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       # Either registry token triggers the registry-config generation/cleanup and the hardened
       # install path (scripts-disabled credentialed install + tokenless lifecycle replay).
       HAS_REGISTRY_TOKEN: ${{ !!secrets.VERDACCIO_TOKEN || !!secrets.TAKUMI_GUARD_TOKEN }}
@@ -206,13 +202,50 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ (runner.environment == 'self-hosted' && (github.head_ref || github.ref_name)) || '' }}
-      # The secret is passed via env and written with printf so that quotes or backslashes in
-      # its value cannot break out of the shell command.
-      - if: ${{ needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
-        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
+      # The code-gauge report near the end of the job needs, as an ancestor of HEAD in the local
+      # history, the commit the pull request's changes are measured against, while the checkout is
+      # shallow. A hosted run checks out the pull-request merge commit, whose first parent is the
+      # base it was built on: taking that parent keeps the comparison exact even when the base
+      # branch moved or was rewritten since. A self-hosted run checks out the head branch tip, so
+      # the compare API names the merge-base and how many commits HEAD is ahead of the base
+      # branch, which bounds the depth that reaches it. --shallow-exclude would fetch less but
+      # leaves a broken shallow repository when a commit merging the base branch is fetched. The
+      # checkout persists no credentials, so the job token (read-only on fork pull requests,
+      # which suffices) authenticates explicitly; that is why this runs here, before any code of
+      # the pull request does: a process such code leaves behind could read the token from this
+      # step's command lines. A failure only costs the report, so it never fails the job.
+      - if: ${{ steps.checkout.outcome == 'success' && github.event_name == 'pull_request' && strategy.job-index == 0 }}
+        name: Fetch the base commit for code-gauge
+        id: code-gauge-base
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          if ! grep -qs '"@willbooster/wb":' package.json; then
+            exit 0
+          fi
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$JOB_TOKEN" | base64 | tr -d '\n')"
+          head=$(git rev-parse HEAD)
+          deepen() {
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraheader" GIT_CONFIG_VALUE_0="$auth" \
+              git fetch --quiet --no-tags --no-recurse-submodules --depth="$1" origin "$head"
+          }
+          if [[ "$IS_MERGE_COMMIT" == true ]]; then
+            deepen 2 && base=$(git rev-parse --verify --quiet 'HEAD^1')
+          else
+            read -r base depth < <(
+              curl --fail --show-error --silent --retry 3 -H "$auth" \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')...$head?per_page=1&page=2" |
+                jq -r '"\(.merge_base_commit.sha) \(.ahead_by + 1)"'
+            ) && deepen "$depth" && git merge-base --is-ancestor "$base" HEAD
+          fi || {
+            echo '::notice::Skipped code-gauge: the base commit of the pull request could not be fetched.'
+            exit 0
+          }
+          echo "base=$base" >> "$GITHUB_OUTPUT"
         env:
-          DOT_ENV: ${{ secrets.DOT_ENV }}
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
+          BASE_REF: ${{ github.base_ref }}
+          IS_MERGE_COMMIT: ${{ runner.environment != 'self-hosted' }}
+          JOB_TOKEN: ${{ github.token }}
 
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Check version files
@@ -227,7 +260,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ needs.pre.outputs.should_skip != 'true' && !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           check-latest: true
           node-version: ${{ matrix.node-version || 'lts/*' }}
@@ -238,7 +271,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@v5.2.2
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       # Unlike deploy's fail-fast check, this only warns: fork pull requests legitimately run
@@ -378,6 +411,32 @@ jobs:
           # wrapper. Empty means "honor yarn-path" (yarn1's boolifyWithDefault treats '' as
           # unset); Berry repos always keep their committed yarnPath — it IS the Berry binary.
           YARN_IGNORE_PATH: ${{ (env.HAS_REGISTRY_TOKEN == 'true' && steps.env-info.outputs.skip-scripts-option == '--ignore-scripts') && '1' || '' }}
+      # --frozen-lockfile accepts any bun.lock that still satisfies package.json, including one the
+      # pinned Bun would write differently (e.g. a lockfile written by another Bun version or left
+      # with orphaned entries); any later install that re-resolves it then commits unrelated
+      # lockfile changes. A plain `bun install` after the frozen one does not always catch it:
+      # it can take the no-change path and keep bun.lock as is. --lockfile-only re-derives
+      # bun.lock without touching node_modules or running lifecycle scripts; the registry tokens
+      # are in this step's environment.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.env-info.outputs.runner == 'bun' }}
+        name: Check that the pinned Bun leaves bun.lock unchanged
+        run: |
+          : # A lockfile update under a Takumi Guard .npmrc rewrites every resolved URL to the proxy,
+          : # so compare both sides with those URLs stripped (as the normalization step below does):
+          : # only changes made by this re-derivation count, and proxy URLs already committed are left
+          : # to that step.
+          normalize() { sed -E 's#(", )"https://npm\.flatt\.tech/[^"]*"#\1""#g' bun.lock; }
+          normalize > "$RUNNER_TEMP/bun-lock.before"
+          bun install --lockfile-only --ignore-scripts
+          normalize > "$RUNNER_TEMP/bun-lock.after"
+          if ! diff -u --label bun.lock --label bun.lock "$RUNNER_TEMP/bun-lock.before" "$RUNNER_TEMP/bun-lock.after" > "$RUNNER_TEMP/bun-lock.diff"; then
+            head -n 200 "$RUNNER_TEMP/bun-lock.diff"
+            echo "::error::The pinned Bun $(bun -v) rewrites bun.lock as shown above; run \`bun install --lockfile-only\` with that version (as pinned in mise.toml or .tool-versions) and commit bun.lock."
+            exit 1
+          fi
+        env:
+          TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
+          VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
       # Replay the lifecycle scripts the credentialed install skipped, in an environment without
       # the registry tokens (the job-level empty values keep ${VERDACCIO_TOKEN} and
       # ${TAKUMI_GUARD_TOKEN} references in .npmrc/.yarnrc.yml expanding to '' instead of
@@ -490,19 +549,12 @@ jobs:
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Report code fixed by the previous steps
         run: |
-          excludes=()
-          if [[ "$HAS_DOT_ENV" == "true" ]]; then
-            excludes=(":(exclude)$DOT_ENV_PATH")
-            git restore --staged -- "$DOT_ENV_PATH" 2> /dev/null || true
-          fi
-          if [[ -n "$(git status --porcelain -- . "${excludes[@]}")" ]]; then
+          if [[ -n "$(git status --porcelain -- .)" ]]; then
             git status
-            git diff HEAD -- . "${excludes[@]}"
+            git diff HEAD -- .
             echo '::error::Found changes during gen-code, cleanup, lint-fix and/or build.'
             exit 1
           fi
-        env:
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       # Typecheck must be executed after `gen-code`
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run "typecheck" npm script if exists
@@ -553,12 +605,41 @@ jobs:
           RUNNER: ${{ steps.env-info.outputs.runner }}
       - if: ${{ always() && inputs.upload_test_log && steps.test.outputs.log_path != '' }}
         name: Upload test log
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-output-${{ runner.os }}-${{ matrix.node-version || 'pinned' }}-${{ job.check_run_id }}-${{ github.run_attempt }}
           path: ${{ steps.test.outputs.log_path }}
           retention-days: 14
           if-no-files-found: error
+      # Warnings only for now, so this step must never fail the job: every expected failure ends
+      # it successfully and continue-on-error covers the rest. It runs even after failed tests,
+      # but after the build (a repository developing wb itself runs wb from its build output) and
+      # before the steps below that modify and stage files, which code-gauge would count as
+      # changes. wb is run directly because Yarn 1 would wrap its output in its own lines. An
+      # older wb has no code-gauge command and prints its general help for it.
+      - if: ${{ !cancelled() && steps.code-gauge-base.outputs.base }}
+        name: Report code-gauge violations in the changed code
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          if [[ "$(node_modules/.bin/wb code-gauge --help 2> /dev/null)" != *--base* ]]; then
+            exit 0
+          fi
+          status=0
+          output=$(node_modules/.bin/wb code-gauge --base "$BASE" 2>&1) || status=$?
+          heading='code-gauge'
+          # wb reports violations and an incomplete check with exit code 0, so anything else is wb failing.
+          if [[ "$status" -ne 0 ]]; then
+            heading="code-gauge (wb failed with exit code $status; not a violation report)"
+            echo "::warning::wb code-gauge failed with exit code $status."
+          fi
+          if [[ -n "$output" ]]; then
+            echo "$output"
+            printf '### %s\n\n```\n%s\n```\n' "$heading" "$output" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        env:
+          BASE: ${{ steps.code-gauge-base.outputs.base }}
+          FORCE_COLOR: 0
       - if: ${{ needs.pre.outputs.should_skip != 'true' }}
         name: Run lint-staged
         run: |
@@ -600,19 +681,28 @@ jobs:
           # The dry run's npm invocations expand these tokens from the generated .npmrc.
           TAKUMI_GUARD_TOKEN: ${{ secrets.TAKUMI_GUARD_TOKEN }}
           VERDACCIO_TOKEN: ${{ secrets.VERDACCIO_TOKEN }}
+      # The deploy-test script validates the deployment configuration against the live platform
+      # (e.g. an infrastructure-as-code plan) without deploying. It does not depend on the Node.js
+      # version, so only the first matrix leg queries the platform. Fork pull requests receive no
+      # secrets, so they skip it; same-repository runs without the token fail loudly instead, since
+      # a caller defining deploy-test must pass it.
+      - if: ${{ needs.pre.outputs.should_skip != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && strategy.job-index == 0 }}
+        name: Test deploy script
+        run: |
+          if grep -q '"deploy-test":' package.json; then
+            ${{ steps.env-info.outputs.runner }} run deploy-test
+          fi
+        env:
+          # The consumer deploy-test script may load env vars through wb/fnox (step-scoped;
+          # see the fnox check step above).
+          FNOX_AGE_KEY: ${{ secrets.FNOX_AGE_KEY }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
       - if: ${{ always() && steps.checkout.outcome == 'success' && needs.pre.outputs.should_skip != 'true' && inputs.artifact_path }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-artifact-${{ runner.os }}-${{ matrix.node-version || 'pinned' }}-${{ job.check_run_id }}-${{ github.run_attempt }}
           path: ${{ inputs.artifact_path }}
 
-      # Delete only when the DOT_ENV secret was actually written by this run: dot_env_path
-      # defaults to .env, which some private repos commit.
-      - if: ${{ always() && needs.pre.outputs.should_skip != 'true' && env.HAS_DOT_ENV == 'true' }}
-        name: Delete credential files
-        run: rm -f -- "$DOT_ENV_PATH"
-        env:
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - if: ${{ always() && needs.pre.outputs.should_skip != 'true' && env.HAS_REGISTRY_TOKEN == 'true' }}
         name: Clean up the generated registry configs
         uses: WillBooster/reusable-workflows/.github/actions/cleanup-registry-configs@main

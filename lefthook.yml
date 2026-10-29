@@ -4,24 +4,22 @@ post-merge:
     - name: prepare
       script: prepare.sh
       runner: bash
+pre-push:
+  jobs:
+    - name: check
+      script: check.sh
+      runner: bash
 pre-commit:
   jobs:
     - name: cleanup
-      glob: '**/*.{java}'
+      glob: '**/*.{cjs,css,cts,gql,graphql,hbs,htm,html,java,js,json,json5,jsonc,jsx,less,md,mdx,mjs,mts,scss,toml,ts,tsx,vue,yaml,yml}'
       run: |-
-
-
-
-        package_json_files="$(printf '%s\n' {staged_files} | grep -E '(^|/)package\.json$' || true)"
-
-
-
-
-
-
-        if [ -n "$package_json_files" ]; then
-          node node_modules/.bin/sort-package-json -- $package_json_files
-        fi
+        [ -d node_modules ] || bun install --frozen-lockfile || exit
+        for file in {staged_files}; do
+          case "$file" in
+            *.cjs|*.css|*.cts|*.gql|*.graphql|*.hbs|*.htm|*.html|*.js|*.json|*.json5|*.jsonc|*.jsx|*.less|*.md|*.mdx|*.mjs|*.mts|*.scss|*.toml|*.ts|*.tsx|*.vue|*.yaml|*.yml) bun fmt --no-script --no-error-on-unmatched-pattern -- "$file" || exit ;;
+          esac
+        done
       stage_fixed: true
     - name: check-migrations
       glob: '**/migration.sql'
@@ -34,3 +32,7 @@ pre-commit:
           fi
         done
         exit "$failed"
+    - name: normalize-bun-lockfile
+      glob: bun.lock
+      run: bash .lefthook/normalize-bun-lockfile.sh {staged_files}
+      stage_fixed: true

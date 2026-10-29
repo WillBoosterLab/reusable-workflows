@@ -1,26 +1,28 @@
 {
   "name": "reusable-workflows",
+  "license": "UNLICENSED",
+  "author": "WillBooster Inc.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WillBooster/reusable-workflows.git"
   },
-  "license": "UNLICENSED",
-  "author": "WillBooster Inc.",
   "scripts": {
-    "cleanup": "bun run format",
-    "format": "sort-package-json",
-    "prepare": "lefthook install || true",
+    "cleanup": "bun wb lint --fix --format",
+    "format": "bun wb lint --format",
+    "lint": "bun wb lint",
+    "lint-fix": "bun wb lint --fix",
+    "prepare": "(bun lefthook install || true) && (test ! -f .lefthook/normalize-bun-lockfile.sh || bash .lefthook/normalize-bun-lockfile.sh)",
     "sync": "one-way-git-sync -v -i node_modules -i renovate.jsonc -d git@github.com:WillBoosterLab/reusable-workflows.git -b main",
     "sync-force": "bun run sync --force",
     "test": "bun .github/scripts/checkRunnerPolicy.mjs && bun .github/scripts/checkTestOutput.mjs && bun .github/scripts/checkSemanticPrTitle.mjs",
-    "verify": "bun node_modules/@willbooster/wb/bin/index.js verify",
-    "verify-full": "bun node_modules/@willbooster/wb/bin/index.js verify --full"
+    "test/ci": "bun wb test-on-ci",
+    "verify": "bun wb verify",
+    "verify-full": "bun wb verify --full"
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@willbooster/wb": "22.8.0",
-    "lefthook": "2.1.14",
-    "one-way-git-sync": "6.0.46",
-    "sort-package-json": "4.0.0"
+    "@willbooster/wb": "22.29.3",
+    "lefthook": "2.2.2",
+    "one-way-git-sync": "6.0.51"
   }
 }

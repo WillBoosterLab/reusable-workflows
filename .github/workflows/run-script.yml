@@ -1,6 +1,6 @@
 name: Run script
 
-# Runs an arbitrary package.json script with the repo's dotenv/secret files in place.
+# Runs an arbitrary package.json script with the caller's secret files (file_path_1/file_path_2) in place.
 # Intended for scheduled maintenance jobs (e.g. cleanup scripts) so that caller repos
 # do not duplicate checkout/setup/install boilerplate per job.
 on:
@@ -23,10 +23,6 @@ on:
         required: false
         type: string
       cpu_arch:
-        required: false
-        type: string
-      dot_env_path:
-        default: .env
         required: false
         type: string
       environment:
@@ -64,8 +60,6 @@ on:
     secrets:
       DISCORD_WEBHOOK_URL:
         required: false
-      DOT_ENV:
-        required: false
       FILE_CONTENT_1:
         required: false
       FILE_CONTENT_2:
@@ -93,7 +87,6 @@ jobs:
       # the consumer script steps), so dependency lifecycle scripts run by the installs and the
       # lifecycle replay below can never read the long-lived age identity (#458).
       HAS_DISCORD_WEBHOOK_URL: ${{ !!secrets.DISCORD_WEBHOOK_URL }}
-      HAS_DOT_ENV: ${{ !!secrets.DOT_ENV }}
       HAS_FILE_CONTENT_1: ${{ !!secrets.FILE_CONTENT_1 }}
       HAS_FILE_CONTENT_2: ${{ !!secrets.FILE_CONTENT_2 }}
       # Either registry token triggers the registry-config generation/cleanup and the hardened
@@ -127,11 +120,6 @@ jobs:
           ref: ${{ inputs.branch }}
       # Secrets are passed via env and written with printf so that quotes or backslashes in
       # their values cannot break out of the shell command.
-      - if: ${{ env.HAS_DOT_ENV == 'true' }}
-        run: printf '%s\n' "$DOT_ENV" > "$DOT_ENV_PATH"
-        env:
-          DOT_ENV: ${{ secrets.DOT_ENV }}
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
       - if: ${{ inputs.file_path_1 && env.HAS_FILE_CONTENT_1 == 'true' }}
         run: printf '%s\n' "$FILE_CONTENT_1" > "$FILE_PATH_1"
         env:
@@ -155,7 +143,7 @@ jobs:
             echo "exist-nodejs-version=1" >> $GITHUB_OUTPUT
           fi
       - if: ${{ !steps.check-ver.outputs.exist-nodejs-version }}
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           check-latest: true
           node-version: lts/*
@@ -166,7 +154,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v4.3.0
+        uses: jdx/mise-action@v5.2.2
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       - name: Ensure fnox secrets are resolvable
@@ -319,17 +307,14 @@ jobs:
           CONTENT_JSON: ${{ toJSON(format('{0} [{1}]({2}) の {3}{4} が[失敗](https://github.com/{5}/actions/runs/{6})しました！！！', inputs.failure_mention_on_discord, github.event.repository.name, github.event.repository.html_url, inputs.command, (inputs.environment && format(' ({0})', inputs.environment)) || '', github.repository, github.run_id)) }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-
       - if: ${{ always() }}
         name: Delete credential files
         run: |
           : # Delete each file only when this run actually wrote it (the caller may commit
           : # files at these paths and run without the corresponding secret).
-          if [[ "$HAS_DOT_ENV" == "true" ]]; then rm -f -- "$DOT_ENV_PATH"; fi
           if [[ "$HAS_FILE_CONTENT_1" == "true" && -n "$FILE_PATH_1" ]]; then rm -f -- "$FILE_PATH_1"; fi
           if [[ "$HAS_FILE_CONTENT_2" == "true" && -n "$FILE_PATH_2" ]]; then rm -f -- "$FILE_PATH_2"; fi
         env:
-          DOT_ENV_PATH: ${{ inputs.dot_env_path }}
           FILE_PATH_1: ${{ inputs.file_path_1 }}
           FILE_PATH_2: ${{ inputs.file_path_2 }}
       - if: ${{ always() && env.HAS_REGISTRY_TOKEN == 'true' }}
