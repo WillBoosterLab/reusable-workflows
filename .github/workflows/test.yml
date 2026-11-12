@@ -29,6 +29,11 @@ on:
         default: '["**.md", "**/docs/**"]'
         required: false
         type: string
+      paths:
+        description: JSON array of path patterns; when non-empty, skip the tests unless a change matches one of them.
+        default: '[]'
+        required: false
+        type: string
       runs_on:
         description: JSON runner labels. Private overrides must be arrays containing self-hosted; other overrides use the default self-hosted pool.
         required: false
@@ -70,6 +75,7 @@ jobs:
           cancel_others: false
           skip_after_successful_duplicate: true
           paths_ignore: ${{ inputs.paths_ignore }}
+          paths: ${{ inputs.paths }}
   detect-node-version-matrix:
     needs: pre
     runs-on: ${{ (inputs.runs_on && (toJSON(github.event.repository.private) == 'false' || (startsWith(inputs.runs_on, '[') && contains(fromJSON(inputs.runs_on), 'self-hosted'))) && fromJSON(inputs.runs_on)) || (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
@@ -125,7 +131,7 @@ jobs:
             : # Pinned: this job may run with a preinstalled npm < 11.10 that ignores the gate, and
             : # published npm versions are immutable, so a pin removes the freshly-resolved-latest
             : # exposure the gate cannot cover here.
-            NODE_VERSIONS=$(npx -y semver@7.8.5 -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 24.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
+            NODE_VERSIONS=$(npx -y semver@7.8.5 -r "$CONSTRAINT" 14.999.999 16.999.999 18.999.999 20.999.999 22.999.999 26.999.999 | xargs | sed 's/ /","/g' | sed 's/\.999\.999//g')
           fi
           echo "json=[\"$NODE_VERSIONS\"]" >> $GITHUB_OUTPUT
   test:
@@ -171,6 +177,7 @@ jobs:
         with:
           cancel_others: true
           paths_ignore: ${{ inputs.paths_ignore }}
+          paths: ${{ inputs.paths }}
       - name: Clear stale skip-worktree bits left by a crashed previous run
         uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
       # Fork pull-request code must never execute on persistent self-hosted runners: dependency
@@ -271,7 +278,7 @@ jobs:
           chmod 700 "$GNUPGHOME"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
       - if: ${{ needs.pre.outputs.should_skip != 'true' && steps.check-ver.outputs.exist-any-version }}
-        uses: jdx/mise-action@v5.2.2
+        uses: jdx/mise-action@v5.2.7
         with:
           cache: ${{ toJSON(runner.environment != 'self-hosted') }}
       # Unlike deploy's fail-fast check, this only warns: fork pull requests legitimately run

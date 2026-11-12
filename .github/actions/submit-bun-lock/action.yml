@@ -1,0 +1,14 @@
+name: Submit bun.lock dependencies
+description: >-
+  Submit every npm package resolved in the checked-out repository's bun.lock to GitHub's dependency
+  graph, which does not parse bun.lock itself, so that Dependabot alerts cover transitive
+  dependencies. Requires Bun on PATH and a job token with contents: write; GitHub raises Dependabot
+  alerts only for snapshots of the default branch.
+runs:
+  using: composite
+  steps:
+    - name: Submit bun.lock dependencies
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: bun "$GITHUB_ACTION_PATH/buildSnapshot.mjs" | gh api --method POST "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input -

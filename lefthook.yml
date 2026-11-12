@@ -17,7 +17,7 @@ pre-commit:
         [ -d node_modules ] || bun install --frozen-lockfile || exit
         for file in {staged_files}; do
           case "$file" in
-            *.cjs|*.css|*.cts|*.gql|*.graphql|*.hbs|*.htm|*.html|*.js|*.json|*.json5|*.jsonc|*.jsx|*.less|*.md|*.mdx|*.mjs|*.mts|*.scss|*.toml|*.ts|*.tsx|*.vue|*.yaml|*.yml) bun fmt --no-script --no-error-on-unmatched-pattern -- "$file" || exit ;;
+            *.cjs|*.css|*.cts|*.gql|*.graphql|*.hbs|*.htm|*.html|*.js|*.json|*.json5|*.jsonc|*.jsx|*.less|*.md|*.mdx|*.mjs|*.mts|*.scss|*.toml|*.ts|*.tsx|*.vue|*.yaml|*.yml) bun fmt --no-script --no-config --no-error-on-unmatched-pattern -- "$file" || exit ;;
           esac
         done
       stage_fixed: true

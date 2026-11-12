@@ -1,0 +1,21 @@
+name: Submit dependencies
+
+on:
+  workflow_call:
+
+jobs:
+  submit-dependencies:
+    runs-on: ${{ (toJSON(github.event.repository.private) == 'false' && 'ubuntu-latest') || fromJSON('["self-hosted", "medium"]') }}
+    timeout-minutes: 10
+    steps:
+      - name: Clear stale skip-worktree bits left by a crashed previous run
+        uses: WillBooster/reusable-workflows/.github/actions/clear-stale-skip-worktree@main
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      # Installs only Bun: the snapshot is built from bun.lock without installing dependencies.
+      - uses: jdx/mise-action@v5.2.7
+        with:
+          install_args: bun
+          cache: ${{ toJSON(runner.environment != 'self-hosted') }}
+      - uses: WillBooster/reusable-workflows/.github/actions/submit-bun-lock@main

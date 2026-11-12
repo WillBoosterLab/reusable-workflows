@@ -21,8 +21,8 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@willbooster/wb": "22.29.3",
+    "@willbooster/wb": "23.3.0",
     "lefthook": "2.2.2",
-    "one-way-git-sync": "6.0.51"
+    "one-way-git-sync": "6.0.52"
   }
 }

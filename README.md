@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/WillBooster/reusable-workflows/actions/workflows/test.yml/badge.svg)](https://github.com/WillBooster/reusable-workflows/actions/workflows/test.yml)
 [![Test rust](https://github.com/WillBooster/reusable-workflows/actions/workflows/test-rust.yml/badge.svg)](https://github.com/WillBooster/reusable-workflows/actions/workflows/test-rust.yml)
-[![wbfy](https://img.shields.io/badge/wbfy-20.48.9-1e90ff.svg)](https://github.com/WillBooster/shared/tree/main/packages/wbfy)
+[![wbfy](https://img.shields.io/badge/wbfy-21.3.0-1e90ff.svg)](https://github.com/WillBooster/shared/tree/main/packages/wbfy)
 
 A collection of reusable workflows for GitHub Actions.
 
@@ -24,6 +24,10 @@ The four install-capable workflows (`test.yml`, `deploy.yml`, `release.yml`, `ru
 - `FNOX_AGE_KEY`: age secret key that decrypts the age-encrypted secrets committed in the caller's `fnox.toml`. Required for repositories whose `fnox.toml` contains age-encrypted secrets; after mise installs fnox, `deploy.yml`, `release.yml`, and `run-script.yml` fail fast when the committed secrets cannot be resolved (missing or wrong key), while `test.yml` only warns (fork pull requests run it without secrets). A `fnox.toml` with only plaintext defaults needs no key, but a non-development job must still declare the selected profile (an inline `[profiles.<name>]` or a `fnox.<name>.toml` file) — an undeclared profile silently falls back to the base (development) secrets, so the check rejects it.
 
 Do NOT pass these secrets explicitly to the other workflows (e.g. `semantic-pr.yml`, `close-comment.yml`): GitHub rejects a `secrets:` map entry the callee does not declare (`secrets: inherit` is exempt from this validation). Running `wbfy` (>= 3.0.0) on the caller repository injects `VERDACCIO_TOKEN`/`FNOX_AGE_KEY` automatically.
+
+## Dependency submission for Bun
+
+GitHub's dependency graph does not parse `bun.lock`, so Dependabot alerts of a Bun repository cover only the versions written in `package.json` files. `submit-dependencies.yml` submits every npm package resolved in the caller's `bun.lock` through the dependency submission API, without installing dependencies, so that alerts cover transitive dependencies too. The caller must grant `contents: write`, and should run it on pushes to the default branch that change `bun.lock`: GitHub raises Dependabot alerts only for snapshots of the default branch.
 
 ## Automated fix application is retired
 
